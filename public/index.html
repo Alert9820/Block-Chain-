@@ -1,46 +1,235 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+<meta charset="UTF-8" />
 <title>Blockchain Evidence System</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+    body {
+        margin: 0;
+        background: #030303;
+        font-family: 'Segoe UI', sans-serif;
+        color: #00ffea;
+        overflow-x: hidden;
+    }
+
+    /* Animated Cyber Grid BG */
+    body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background:
+            linear-gradient(#00ffea44 1px, transparent 1px),
+            linear-gradient(90deg, #00ffea44 1px, transparent 1px);
+        background-size: 40px 40px;
+        animation: moveGrid 15s linear infinite;
+        z-index: -1;
+    }
+    @keyframes moveGrid {
+        from {background-position: 0 0, 0 0;}
+        to {background-position: 40px 40px, 40px 40px;}
+    }
+
+    h1 {
+        text-align: center;
+        padding: 20px 10px;
+        font-size: 28px;
+        letter-spacing: 2px;
+        text-shadow: 0 0 12px #00fff2;
+    }
+
+    .container {
+        width: 92%;
+        max-width: 1050px;
+        margin: auto;
+        display: grid;
+        gap: 20px;
+        grid-template-columns: 1fr 1fr;
+    }
+
+    /* Card UI */
+    .card {
+        background: rgba(0, 0, 0, 0.55);
+        padding: 18px;
+        border-radius: 14px;
+        border: 1px solid #00ffd977;
+        box-shadow: 0 0 20px #00ffe566;
+        backdrop-filter: blur(6px);
+    }
+
+    label { font-size: 13px; opacity: 0.8; }
+    
+    textarea, input[type="file"] {
+        width: 100%;
+        margin: 6px 0 12px;
+        background: #000;
+        color: #00ffe6;
+        border: 1px solid #00ffe455;
+        border-radius: 8px;
+        padding: 8px;
+        outline: none;
+    }
+
+    button {
+        background: #00ffd9;
+        color: #000;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 50px;
+        font-size: 14px;
+        font-weight: bold;
+        cursor: pointer;
+        box-shadow: 0 0 12px #00ffe4;
+        transition: 0.2s;
+        margin-right: 5px;
+    }
+    button:hover {
+        transform: scale(1.05);
+        box-shadow: 0 0 20px #00fff2;
+    }
+
+    /* Blockchain View */
+    #chainBox {
+        max-height: 80vh;
+        overflow-y: auto;
+        padding-right: 5px;
+    }
+
+    /* Block Card Animation */
+    .block {
+        border: 1px solid #00ffd966;
+        margin-bottom: 12px;
+        padding: 12px;
+        border-radius: 14px;
+        background: #000000aa;
+        animation: fadeIn 0.5s ease;
+        box-shadow: 0 0 15px #00fff433;
+        position: relative;
+    }
+    @keyframes fadeIn {
+        from {opacity: 0; transform: translateY(10px);}
+        to {opacity: 1; transform: translateY(0);}
+    }
+
+    /* Chain connector glowing line */
+    .block::before {
+        content: "";
+        position: absolute;
+        left: -15px;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        background: #00ffd9;
+        box-shadow: 0 0 10px #00fff2;
+        border-radius: 2px;
+        animation: glow 1.8s infinite alternate;
+    }
+    @keyframes glow {
+        from {opacity: 0.2;}
+        to {opacity: 1;}
+    }
+
+    .hash {
+        font-size: 12px;
+        opacity: 0.8;
+        color: #97fff8;
+        word-break: break-all;
+    }
+    .label {
+        font-size: 12px;
+        opacity: 0.6;
+        margin-top: 4px;
+    }
+</style>
 </head>
+
 <body>
-    <h2>Add FIR / Evidence Block</h2>
-    <form id="uploadForm">
-        <input type="text" id="text" placeholder="Enter FIR / Evidence Text" required><br><br>
-        <input type="file" id="image"><br><br>
-        <button type="submit">Add Block</button>
-    </form>
 
-    <hr>
+<h1>⚡ Blockchain Evidence System</h1>
 
-    <h2>Blockchain Data</h2>
-    <button onclick="loadChain()">View Full Chain</button>
-    <pre id="output"></pre>
+<div class="container">
+
+    <!-- ADD BLOCK FORM -->
+    <div class="card">
+        <h2>Add Block</h2>
+
+        <label>Evidence Text</label>
+        <textarea id="text" placeholder="Enter FIR / Evidence"></textarea>
+
+        <label>Upload Image (Optional)</label>
+        <input type="file" id="image">
+
+        <button onclick="addBlock()">Add Block</button>
+        <button onclick="loadChain()">View Chain</button>
+        <button onclick="validateChain()">Validate</button>
+
+        <p id="status" style="margin-top:10px;font-size:13px;color:#81fff0;"></p>
+    </div>
+
+    <!-- BLOCKCHAIN VIEW -->
+    <div class="card">
+        <h2>Blockchain</h2>
+        <div id="chainBox"><p>Click “View Chain”</p></div>
+    </div>
+
+</div>
 
 <script>
-document.getElementById("uploadForm").addEventListener("submit", async function (e) {
-    e.preventDefault();
-
+async function addBlock() {
     const text = document.getElementById("text").value;
     const image = document.getElementById("image").files[0];
+    const status = document.getElementById("status");
 
-    const formData = new FormData();
-    formData.append("text", text);
-    if (image) formData.append("image", image);
+    const form = new FormData();
+    form.append("text", text);
+    if (image) form.append("image", image);
 
-    const res = await fetch("/addBlock", {
-        method: "POST",
-        body: formData
-    });
+    status.innerText = "Processing…";
 
-    document.getElementById("output").innerText = JSON.stringify(await res.json(), null, 2);
-});
+    const res = await fetch("/addBlock", { method: "POST", body: form });
+    const json = await res.json();
+    status.innerText = "Block Added!";
+    loadChain();
+}
 
 async function loadChain() {
     const res = await fetch("/chain");
-    document.getElementById("output").innerText = JSON.stringify(await res.json(), null, 2);
+    const chain = await res.json();
+
+    const box = document.getElementById("chainBox");
+    box.innerHTML = "";
+
+    chain.forEach(b => {
+        box.innerHTML += `
+            <div class="block">
+                <div><strong>Block #${b.index}</strong></div>
+                <div class="label">Time:</div>
+                <div class="hash">${b.timestamp}</div>
+
+                <div class="label">Text:</div>
+                <div class="hash">${b.text}</div>
+
+                <div class="label">Image Hash:</div>
+                <div class="hash">${b.imageHash || "None"}</div>
+
+                <div class="label">Prev Hash:</div>
+                <div class="hash">${b.previousHash}</div>
+
+                <div class="label">Hash:</div>
+                <div class="hash">${b.hash}</div>
+            </div>
+        `;
+    });
+}
+
+async function validateChain() {
+    const res = await fetch("/validate");
+    const data = await res.json();
+    document.getElementById("status").innerText =
+        data.valid ? "Chain Valid ✓" : "❌ Tampering detected at Block " + data.tamperedAt;
 }
 </script>
 
 </body>
-</html>
+    </html>
