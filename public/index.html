@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Blockchain Evidence System</title>
+</head>
+<body>
+    <h2>Add FIR / Evidence Block</h2>
+    <form id="uploadForm">
+        <input type="text" id="text" placeholder="Enter FIR / Evidence Text" required><br><br>
+        <input type="file" id="image"><br><br>
+        <button type="submit">Add Block</button>
+    </form>
+
+    <hr>
+
+    <h2>Blockchain Data</h2>
+    <button onclick="loadChain()">View Full Chain</button>
+    <pre id="output"></pre>
+
+<script>
+document.getElementById("uploadForm").addEventListener("submit", async function (e) {
+    e.preventDefault();
+
+    const text = document.getElementById("text").value;
+    const image = document.getElementById("image").files[0];
+
+    const formData = new FormData();
+    formData.append("text", text);
+    if (image) formData.append("image", image);
+
+    const res = await fetch("/addBlock", {
+        method: "POST",
+        body: formData
+    });
+
+    document.getElementById("output").innerText = JSON.stringify(await res.json(), null, 2);
+});
+
+async function loadChain() {
+    const res = await fetch("/chain");
+    document.getElementById("output").innerText = JSON.stringify(await res.json(), null, 2);
+}
+</script>
+
+</body>
+</html>
