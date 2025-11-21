@@ -6,144 +6,405 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
+:root {
+    --primary: #00f7ff;
+    --primary-glow: #00ffee22;
+    --secondary: #ff00d6;
+    --accent: #ffd43b;
+    --danger: #ff5c5c;
+    --success: #00ff9d;
+    --bg-dark: #020202;
+    --card-bg: rgba(0, 0, 0, 0.45);
+}
+
 body {
-    background:#020202;
-    color:#00f7ff;
-    font-family:Segoe UI, sans-serif;
-    margin:0;
-    overflow-x:hidden;
+    background: var(--bg-dark);
+    color: var(--primary);
+    font-family: 'Segoe UI', sans-serif;
+    margin: 0;
+    overflow-x: hidden;
+    min-height: 100vh;
 }
 
-/* Neon Grid Animation */
+/* Enhanced Neon Grid Animation */
 body::before {
-    content:"";
-    position:fixed;
-    inset:0;
+    content: "";
+    position: fixed;
+    inset: 0;
     background:
-    linear-gradient(#00ffee22 1px, transparent 1px),
-    linear-gradient(90deg,#00ffee22 1px, transparent 1px);
-    background-size:40px 40px;
-    animation:gridMove 15s linear infinite;
-    z-index:-1;
+        linear-gradient(var(--primary-glow) 1px, transparent 1px),
+        linear-gradient(90deg, var(--primary-glow) 1px, transparent 1px);
+    background-size: 40px 40px;
+    animation: gridMove 15s linear infinite;
+    z-index: -1;
 }
+
+body::after {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: 
+        radial-gradient(circle at 20% 30%, rgba(0, 255, 238, 0.05) 0%, transparent 50%),
+        radial-gradient(circle at 80% 70%, rgba(255, 0, 214, 0.05) 0%, transparent 50%);
+    z-index: -1;
+    pointer-events: none;
+}
+
 @keyframes gridMove {
-    from { background-position:0 0; }
-    to { background-position:40px 40px; }
+    from { background-position: 0 0; }
+    to { background-position: 40px 40px; }
 }
 
-h1{
-    text-align:center;
-    padding:20px;
-    text-shadow:0 0 15px #00ffee;
-    letter-spacing:3px;
+h1 {
+    text-align: center;
+    padding: 20px;
+    text-shadow: 0 0 15px var(--primary);
+    letter-spacing: 3px;
+    font-size: 32px;
+    position: relative;
+    margin-bottom: 10px;
 }
 
-.container{
-    width:92%;
-    max-width:1200px;
-    margin:auto;
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:20px;
+h1::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 200px;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, var(--primary), transparent);
+    box-shadow: 0 0 10px var(--primary);
 }
 
-.card{
-    background:rgba(0,0,0,0.45);
-    border:1px solid #00ffee66;
-    padding:20px;
-    border-radius:14px;
-    box-shadow:0 0 16px #00ffee55;
-    backdrop-filter:blur(6px);
+.container {
+    width: 92%;
+    max-width: 1200px;
+    margin: auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 25px;
 }
 
-textarea, input[type="file"]{
-    width:100%;
-    background:#000;
-    color:#00fff6;
-    border:1px solid #00ffee44;
-    padding:10px;
-    border-radius:8px;
-    margin:8px 0 12px;
-    outline:none;
+/* Enhanced Card Design */
+.card {
+    background: var(--card-bg);
+    border: 1px solid var(--primary);
+    padding: 25px;
+    border-radius: 16px;
+    box-shadow: 0 0 25px var(--primary-glow);
+    backdrop-filter: blur(10px);
+    position: relative;
+    overflow: hidden;
 }
 
-button{
-    background:#00ffee;
-    color:#000;
-    border:none;
-    padding:10px 18px;
-    border-radius:50px;
-    cursor:pointer;
-    font-weight:bold;
-    box-shadow:0 0 16px #00fff6;
-    margin-right:8px;
-    transition:.2s;
-}
-button:hover{
-    transform:scale(1.07);
-    box-shadow:0 0 22px #00fff6;
-}
-
-#chainBox{
-    max-height:80vh;
-    overflow-y:auto;
+.card::before {
+    content: "";
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: conic-gradient(
+        transparent,
+        rgba(0, 255, 238, 0.1),
+        transparent 30%
+    );
+    animation: rotate 6s linear infinite;
+    z-index: 0;
 }
 
-.block{
-    margin-bottom:18px;
-    padding:15px;
-    border:1px solid #00ffee66;
-    border-radius:12px;
-    background:rgba(0,0,0,0.5);
-    position:relative;
-    box-shadow:0 0 16px #00ffee33;
-    animation:fade .4s ease;
-}
-@keyframes fade{
-    from{opacity:0; transform:translateY(10px);}
-    to{opacity:1; transform:translateY(0);}
+.card > * {
+    position: relative;
+    z-index: 1;
 }
 
-.block::before{
-    content:"";
-    position:absolute;
-    left:-14px;
-    top:0; bottom:0;
-    width:3px;
-    background:#00ffee;
-    box-shadow:0 0 14px #00ffee;
-    border-radius:5px;
+@keyframes rotate {
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
-.hash{
-    font-size:12px;
-    opacity:.8;
-    word-break:break-all;
+label {
+    display: block;
+    margin-top: 15px;
+    font-size: 14px;
+    opacity: 0.9;
 }
 
-.badge{
-    padding:4px 8px;
-    font-size:11px;
-    font-weight:bold;
-    border-radius:6px;
-    color:#000;
+textarea, input[type="file"] {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    color: var(--primary);
+    border: 1px solid var(--primary);
+    padding: 12px;
+    border-radius: 8px;
+    margin: 8px 0 15px;
+    outline: none;
+    transition: all 0.3s;
+    font-family: monospace;
 }
-.valid{ background:#00ffd9; }
-.invalid{ background:#ff5c5c; }
-.frozen{ background:#ffd43b; }
 
-img.preview{
-    max-width:100%;
-    margin-top:10px;
-    border-radius:8px;
-    box-shadow:0 0 12px #00ffee55;
+textarea:focus, input[type="file"]:focus {
+    box-shadow: 0 0 10px var(--primary);
+    border-color: var(--success);
+}
+
+button {
+    background: var(--primary);
+    color: #000;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 50px;
+    cursor: pointer;
+    font-weight: bold;
+    box-shadow: 0 0 16px var(--primary);
+    margin-right: 10px;
+    margin-top: 5px;
+    transition: 0.3s;
+    position: relative;
+    overflow: hidden;
+    z-index: 1;
+}
+
+button::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: 0.5s;
+    z-index: -1;
+}
+
+button:hover {
+    transform: scale(1.07);
+    box-shadow: 0 0 22px var(--primary);
+}
+
+button:hover::before {
+    left: 100%;
+}
+
+#chainBox {
+    max-height: 70vh;
+    overflow-y: auto;
+    padding-right: 10px;
+}
+
+/* Enhanced Block Design */
+.block {
+    margin-bottom: 20px;
+    padding: 18px;
+    border: 1px solid var(--primary);
+    border-radius: 14px;
+    background: rgba(0, 0, 0, 0.6);
+    position: relative;
+    box-shadow: 0 0 16px var(--primary-glow);
+    animation: fade 0.4s ease;
+    transition: transform 0.3s, box-shadow 0.3s;
+    overflow: hidden;
+}
+
+.block:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 25px var(--primary-glow);
+}
+
+@keyframes fade {
+    from { opacity: 0; transform: translateY(15px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.block::before {
+    content: "";
+    position: absolute;
+    left: -14px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 3px;
+    background: var(--primary);
+    box-shadow: 0 0 14px var(--primary);
+    border-radius: 5px;
+    animation: glow 2s infinite alternate;
+}
+
+.block:first-child::before {
+    display: none;
+}
+
+@keyframes glow {
+    from { opacity: 0.3; }
+    to { opacity: 1; }
+}
+
+.hash {
+    font-size: 12px;
+    opacity: 0.8;
+    word-break: break-all;
+    font-family: monospace;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 6px;
+    border-radius: 5px;
+    margin-top: 5px;
+}
+
+.badge {
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: bold;
+    border-radius: 20px;
+    color: #000;
+    display: inline-block;
+    margin-bottom: 10px;
+    box-shadow: 0 0 8px currentColor;
+}
+
+.valid { 
+    background: var(--success); 
+    box-shadow: 0 0 10px var(--success);
+}
+
+.invalid { 
+    background: var(--danger); 
+    box-shadow: 0 0 10px var(--danger);
+}
+
+.frozen { 
+    background: var(--accent); 
+    box-shadow: 0 0 10px var(--accent);
+}
+
+img.preview {
+    max-width: 100%;
+    margin-top: 10px;
+    border-radius: 8px;
+    box-shadow: 0 0 12px var(--primary-glow);
+    border: 1px solid var(--primary);
+}
+
+/* Action buttons in blocks */
+.block-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.block-actions button {
+    padding: 8px 15px;
+    font-size: 12px;
+    margin: 0;
+}
+
+.freeze-btn {
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--accent);
+}
+
+.invalidate-btn {
+    background: var(--danger);
+    box-shadow: 0 0 10px var(--danger);
+}
+
+/* Status indicator */
+.status-indicator {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 8px;
+    background: var(--primary);
+    box-shadow: 0 0 8px var(--primary);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 0.5; }
+    50% { opacity: 1; }
+    100% { opacity: 0.5; }
+}
+
+/* Blockchain visualization */
+.chain-visualization {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 10px;
+    border: 1px solid var(--primary-glow);
+}
+
+.chain-node {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--primary);
+    margin: 0 8px;
+    position: relative;
+    box-shadow: 0 0 8px var(--primary);
+}
+
+.chain-node::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 100%;
+    width: 20px;
+    height: 2px;
+    background: var(--primary);
+    box-shadow: 0 0 5px var(--primary);
+}
+
+.chain-node:last-child::after {
+    display: none;
+}
+
+/* Block header */
+.block-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--primary-glow);
+    padding-bottom: 10px;
+}
+
+.block-index {
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--primary);
+    text-shadow: 0 0 5px var(--primary);
+}
+
+.block-timestamp {
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+/* Responsive adjustments */
+@media (max-width: 900px) {
+    .container {
+        grid-template-columns: 1fr;
+    }
+    
+    h1 {
+        font-size: 26px;
+    }
 }
 </style>
 </head>
 
 <body>
 
-<h1>⚡ Neon Evidence Blockchain</h1>
+<h1>⚡ NEON EVIDENCE BLOCKCHAIN</h1>
 
 <div class="container">
 
@@ -151,23 +412,38 @@ img.preview{
 <div class="card">
     <h2>Add Evidence</h2>
 
-    <label>Text</label>
-    <textarea id="text" placeholder="Enter evidence description..."></textarea>
+    <label>Evidence Text</label>
+    <textarea id="text" placeholder="Enter evidence description..." rows="5"></textarea>
 
     <label>Upload Image</label>
-    <input type="file" id="image">
+    <input type="file" id="image" accept="image/*">
 
-    <button onclick="addBlock()">Add Block</button>
-    <button onclick="loadChain()">View Chain</button>
-    <button onclick="validateChain()">Validate</button>
+    <div>
+        <button onclick="addBlock()">Add Block</button>
+        <button onclick="loadChain()">View Chain</button>
+        <button onclick="validateChain()">Validate</button>
+    </div>
 
-    <p id="status" style="margin-top:10px;"></p>
+    <p id="status" style="margin-top:15px;font-size:14px;">
+        <span class="status-indicator"></span>System Ready
+    </p>
 </div>
 
 <!-- CHAIN -->
 <div class="card">
     <h2>Blockchain</h2>
-    <div id="chainBox"></div>
+    
+    <div class="chain-visualization">
+        <div class="chain-node"></div>
+        <div class="chain-node"></div>
+        <div class="chain-node"></div>
+        <div class="chain-node"></div>
+        <div class="chain-node"></div>
+    </div>
+    
+    <div id="chainBox">
+        <p>Click "View Chain" to load the blockchain</p>
+    </div>
 </div>
 
 </div>
@@ -177,78 +453,152 @@ img.preview{
 const API = "https://block-chain-0xps.onrender.com";
 
 // ADD BLOCK
-async function addBlock(){
+async function addBlock() {
     const text = document.getElementById("text").value;
     const image = document.getElementById("image").files[0];
+    const status = document.getElementById("status");
+
+    if (!text.trim()) {
+        status.innerHTML = '<span class="status-indicator"></span>Please enter evidence text';
+        return;
+    }
 
     const fd = new FormData();
     fd.append("text", text);
     if (image) fd.append("image", image);
 
-    let res = await fetch(API + "/addBlock", {
-        method: "POST",
-        body: fd
-    });
+    status.innerHTML = '<span class="status-indicator"></span>Processing...';
 
-    let data = await res.json();
-    document.getElementById("status").textContent = "Block Added ✔";
-    loadChain();
+    try {
+        let res = await fetch(API + "/addBlock", {
+            method: "POST",
+            body: fd
+        });
+
+        let data = await res.json();
+        status.innerHTML = '<span class="status-indicator"></span>Block Added Successfully!';
+        document.getElementById("text").value = "";
+        document.getElementById("image").value = "";
+        loadChain();
+    } catch (error) {
+        status.innerHTML = '<span class="status-indicator"></span>Error: Could not add block';
+        console.error(error);
+    }
 }
 
 // LOAD CHAIN
-async function loadChain(){
-    let res = await fetch(API + "/chain");
-    let chain = await res.json();
+async function loadChain() {
+    const status = document.getElementById("status");
+    status.innerHTML = '<span class="status-indicator"></span>Loading blockchain...';
 
-    let box = document.getElementById("chainBox");
-    box.innerHTML = "";
+    try {
+        let res = await fetch(API + "/chain");
+        let chain = await res.json();
 
-    chain.forEach(b => {
-        box.innerHTML += `
-        <div class="block">
-            <span class="badge ${b.status}">${b.status.toUpperCase()}</span>
+        let box = document.getElementById("chainBox");
+        box.innerHTML = "";
 
-            <b>Block #${b.index}</b><br>
+        if (chain.length === 0) {
+            box.innerHTML = "<p>No blocks in the chain yet</p>";
+            status.innerHTML = '<span class="status-indicator"></span>Chain loaded (0 blocks)';
+            return;
+        }
 
-            <div class="hash">${b.text}</div>
+        chain.forEach(b => {
+            const timestamp = new Date(b.timestamp).toLocaleString();
+            
+            box.innerHTML += `
+            <div class="block">
+                <div class="block-header">
+                    <div class="block-index">Block #${b.index}</div>
+                    <div class="block-timestamp">${timestamp}</div>
+                </div>
+                
+                <span class="badge ${b.status}">${b.status.toUpperCase()}</span>
 
-            <div class="hash"><b>Image Hash:</b> ${b.imageHash}</div>
+                <div class="label">Evidence Text:</div>
+                <div class="hash">${b.text}</div>
 
-            <div class="hash"><b>Prev Hash:</b> ${b.previousHash}</div>
-            <div class="hash"><b>Hash:</b> ${b.hash}</div>
+                <div class="label">Image Hash:</div>
+                <div class="hash">${b.imageHash || "None"}</div>
 
-            ${b.imageId ? `<img class="preview" src="${API}/file/${b.imageId}">` : ""}
+                <div class="label">Previous Hash:</div>
+                <div class="hash">${b.previousHash}</div>
 
-            <br>
-            <button onclick="freeze(${b.index})" style="background:#ffd43b;">Freeze</button>
-            <button onclick="invalidate(${b.index})" style="background:#ff5c5c;">Invalidate</button>
-        </div>
-        `;
-    });
+                <div class="label">Current Hash:</div>
+                <div class="hash">${b.hash}</div>
+
+                ${b.imageId ? `<img class="preview" src="${API}/file/${b.imageId}">` : ""}
+
+                <div class="block-actions">
+                    <button class="freeze-btn" onclick="freeze(${b.index})">Freeze</button>
+                    <button class="invalidate-btn" onclick="invalidate(${b.index})">Invalidate</button>
+                </div>
+            </div>
+            `;
+        });
+
+        status.innerHTML = `<span class="status-indicator"></span>Chain loaded (${chain.length} blocks)`;
+    } catch (error) {
+        status.innerHTML = '<span class="status-indicator"></span>Error: Could not load chain';
+        console.error(error);
+    }
 }
 
 // FREEZE
-async function freeze(i){
-    await fetch(API + "/freeze/" + i, { method: "POST" });
-    loadChain();
+async function freeze(index) {
+    const status = document.getElementById("status");
+    status.innerHTML = `<span class="status-indicator"></span>Freezing block ${index}...`;
+
+    try {
+        await fetch(API + "/freeze/" + index, { method: "POST" });
+        status.innerHTML = `<span class="status-indicator"></span>Block ${index} frozen successfully`;
+        loadChain();
+    } catch (error) {
+        status.innerHTML = `<span class="status-indicator"></span>Error: Could not freeze block`;
+        console.error(error);
+    }
 }
 
 // INVALIDATE
-async function invalidate(i){
-    await fetch(API + "/invalidate/" + i, { method: "POST" });
-    loadChain();
+async function invalidate(index) {
+    const status = document.getElementById("status");
+    status.innerHTML = `<span class="status-indicator"></span>Invalidating block ${index}...`;
+
+    try {
+        await fetch(API + "/invalidate/" + index, { method: "POST" });
+        status.innerHTML = `<span class="status-indicator"></span>Block ${index} invalidated successfully`;
+        loadChain();
+    } catch (error) {
+        status.innerHTML = `<span class="status-indicator"></span>Error: Could not invalidate block`;
+        console.error(error);
+    }
 }
 
 // VALIDATE
-async function validateChain(){
-    let res = await fetch(API + "/validate");
-    let data = await res.json();
+async function validateChain() {
+    const status = document.getElementById("status");
+    status.innerHTML = '<span class="status-indicator"></span>Validating blockchain...';
 
-    if (data.valid) 
-        alert("Blockchain VALID ✔");
-    else 
-        alert("❌ Invalid: " + JSON.stringify(data));
+    try {
+        let res = await fetch(API + "/validate");
+        let data = await res.json();
+
+        if (data.valid) {
+            status.innerHTML = '<span class="status-indicator"></span>Blockchain VALID ✓ - All blocks are securely linked';
+        } else {
+            status.innerHTML = `<span class="status-indicator"></span>❌ Invalid: Tampering detected at block ${data.tamperedAt || 'unknown'}`;
+        }
+    } catch (error) {
+        status.innerHTML = '<span class="status-indicator"></span>Error: Could not validate chain';
+        console.error(error);
+    }
 }
+
+// Initialize
+window.onload = function() {
+    loadChain();
+};
 </script>
 
 </body>
