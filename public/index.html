@@ -14,7 +14,7 @@ body {
     overflow-x:hidden;
 }
 
-/* Moving neon grid */
+/* Neon Grid Animation */
 body::before {
     content:"";
     position:fixed;
@@ -23,15 +23,14 @@ body::before {
     linear-gradient(#00ffee22 1px, transparent 1px),
     linear-gradient(90deg,#00ffee22 1px, transparent 1px);
     background-size:40px 40px;
-    animation:move 15s linear infinite;
+    animation:gridMove 15s linear infinite;
     z-index:-1;
 }
-@keyframes move { 
+@keyframes gridMove {
     from { background-position:0 0; }
     to { background-position:40px 40px; }
 }
 
-/* Heading */
 h1{
     text-align:center;
     padding:20px;
@@ -39,7 +38,6 @@ h1{
     letter-spacing:3px;
 }
 
-/* Layout */
 .container{
     width:92%;
     max-width:1200px;
@@ -49,7 +47,6 @@ h1{
     gap:20px;
 }
 
-/* Cards */
 .card{
     background:rgba(0,0,0,0.45);
     border:1px solid #00ffee66;
@@ -59,7 +56,6 @@ h1{
     backdrop-filter:blur(6px);
 }
 
-/* Inputs */
 textarea, input[type="file"]{
     width:100%;
     background:#000;
@@ -71,7 +67,6 @@ textarea, input[type="file"]{
     outline:none;
 }
 
-/* Buttons */
 button{
     background:#00ffee;
     color:#000;
@@ -89,13 +84,11 @@ button:hover{
     box-shadow:0 0 22px #00fff6;
 }
 
-/* Chain Viewer */
 #chainBox{
     max-height:80vh;
     overflow-y:auto;
 }
 
-/* Blocks */
 .block{
     margin-bottom:18px;
     padding:15px;
@@ -122,14 +115,12 @@ button:hover{
     border-radius:5px;
 }
 
-/* Text */
 .hash{
     font-size:12px;
     opacity:.8;
     word-break:break-all;
 }
 
-/* Badges */
 .badge{
     padding:4px 8px;
     font-size:11px;
@@ -141,7 +132,6 @@ button:hover{
 .invalid{ background:#ff5c5c; }
 .frozen{ background:#ffd43b; }
 
-/* Image preview */
 img.preview{
     max-width:100%;
     margin-top:10px;
@@ -153,7 +143,7 @@ img.preview{
 
 <body>
 
-<h1>⚡ Neon Blockchain Evidence System</h1>
+<h1>⚡ Neon Evidence Blockchain</h1>
 
 <div class="container">
 
@@ -183,7 +173,8 @@ img.preview{
 </div>
 
 <script>
-const API = "https://block-chain-0xps.onrender.com/"; // Render domain like:  https://your-app.onrender.com
+// BACKEND URL
+const API = "https://block-chain-0xps.onrender.com";
 
 // ADD BLOCK
 async function addBlock(){
@@ -192,23 +183,24 @@ async function addBlock(){
 
     const fd = new FormData();
     fd.append("text", text);
-    if(image) fd.append("image", image);
+    if (image) fd.append("image", image);
 
-    const res = await fetch(API + "/addBlock", {
-        method:"POST",
-        body:fd
+    let res = await fetch(API + "/addBlock", {
+        method: "POST",
+        body: fd
     });
 
-    const data = await res.json();
+    let data = await res.json();
     document.getElementById("status").textContent = "Block Added ✔";
+    loadChain();
 }
 
 // LOAD CHAIN
 async function loadChain(){
-    const res = await fetch(API + "/chain");
-    const chain = await res.json();
+    let res = await fetch(API + "/chain");
+    let chain = await res.json();
 
-    const box = document.getElementById("chainBox");
+    let box = document.getElementById("chainBox");
     box.innerHTML = "";
 
     chain.forEach(b => {
@@ -216,7 +208,8 @@ async function loadChain(){
         <div class="block">
             <span class="badge ${b.status}">${b.status.toUpperCase()}</span>
 
-            <div><b>Block #${b.index}</b></div>
+            <b>Block #${b.index}</b><br>
+
             <div class="hash">${b.text}</div>
 
             <div class="hash"><b>Image Hash:</b> ${b.imageHash}</div>
@@ -236,23 +229,25 @@ async function loadChain(){
 
 // FREEZE
 async function freeze(i){
-    await fetch(API + "/freeze/" + i, {method:"POST"});
+    await fetch(API + "/freeze/" + i, { method: "POST" });
     loadChain();
 }
 
 // INVALIDATE
 async function invalidate(i){
-    await fetch(API + "/invalidate/" + i, {method:"POST"});
+    await fetch(API + "/invalidate/" + i, { method: "POST" });
     loadChain();
 }
 
 // VALIDATE
 async function validateChain(){
-    const res = await fetch(API + "/validate");
-    const data = await res.json();
+    let res = await fetch(API + "/validate");
+    let data = await res.json();
 
-    if(data.valid) alert("Blockchain VALID ✔");
-    else alert("❌ Invalid: " + JSON.stringify(data));
+    if (data.valid) 
+        alert("Blockchain VALID ✔");
+    else 
+        alert("❌ Invalid: " + JSON.stringify(data));
 }
 </script>
 
