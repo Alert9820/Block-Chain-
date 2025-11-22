@@ -5,253 +5,240 @@
 <title>Neon Evidence Blockchain</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-/* ---- SAME UI AS YOUR VERSION (kept exactly) ---- */
+/* --- Styling same premium neon style --- */
 :root {
-    --primary: #00f7ff;
-    --primary-glow: #00ffee22;
-    --secondary: #ff00d6;
-    --accent: #ffd43b;
-    --danger: #ff5c5c;
-    --success: #00ff9d;
-    --bg-dark: #020202;
-    --card-bg: rgba(0, 0, 0, 0.45);
+    --primary:#00f7ff;
+    --glow:#00ffee55;
+    --danger:#ff4b4b;
+    --success:#00ff95;
+    --warning:#ffc400;
+    --dark:#020202;
 }
 
 body {
-    background: var(--bg-dark);
+    background: var(--dark);
     color: var(--primary);
-    font-family: 'Segoe UI', sans-serif;
-    margin: 0;
-    overflow-x: hidden;
-    min-height: 100vh;
+    margin:0;
+    font-family:"Segoe UI",sans-serif;
 }
 
 body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
+    content:"";
+    position:fixed;
+    inset:0;
     background:
-        linear-gradient(var(--primary-glow) 1px, transparent 1px),
-        linear-gradient(90deg, var(--primary-glow) 1px, transparent 1px);
-    background-size: 40px 40px;
-    animation: gridMove 15s linear infinite;
-    z-index: -1;
+      linear-gradient(var(--glow) 1px,transparent 1px),
+      linear-gradient(90deg,var(--glow) 1px,transparent 1px);
+    background-size:40px 40px;
+    animation:move 10s linear infinite;
+    z-index:-1;
 }
 
-body::after {
-    content: "";
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: 
-        radial-gradient(circle at 20% 30%, rgba(0, 255, 238, 0.05) 0%, transparent 50%),
-        radial-gradient(circle at 80% 70%, rgba(255, 0, 214, 0.05) 0%, transparent 50%);
-    z-index: -1;
-    pointer-events: none;
-}
-
-@keyframes gridMove {
-    from { background-position: 0 0; }
-    to { background-position: 40px 40px; }
-}
+@keyframes move { to { background-position:40px 40px;} }
 
 h1 {
-    text-align: center;
-    padding: 20px;
-    text-shadow: 0 0 15px var(--primary);
-    letter-spacing: 3px;
-    font-size: 32px;
-    position: relative;
-    margin-bottom: 10px;
+    text-align:center;
+    padding:20px;
+    font-size:30px;
+    text-shadow:0 0 15px var(--primary);
 }
 
 .container {
-    width: 92%;
-    max-width: 1200px;
-    margin: auto;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 25px;
+    width:90%;
+    max-width:1200px;
+    margin:auto;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:20px;
 }
 
 .card {
-    background: var(--card-bg);
-    border: 1px solid var(--primary);
-    padding: 25px;
-    border-radius: 16px;
-    box-shadow: 0 0 25px var(--primary-glow);
-    backdrop-filter: blur(10px);
-    position: relative;
-    overflow: hidden;
+    background:rgba(0,0,0,.5);
+    border:1px solid var(--primary);
+    padding:20px;
+    border-radius:15px;
+    box-shadow:0 0 25px var(--glow);
 }
 
+/* Inputs */
 textarea,input[type=file]{
     width:100%;
     background:#000;
-    color:var(--primary);
     border:1px solid var(--primary);
-    padding:12px;
+    padding:10px;
     border-radius:8px;
-    margin:8px 0 15px;
+    color:var(--primary);
+    margin-top:10px;
 }
+
+/* Buttons */
 button{
     background:var(--primary);
-    padding:12px 20px;
-    border-radius:50px;
-    cursor:pointer;
-    font-weight:bold;
-    box-shadow:0 0 16px var(--primary);
-    margin-right:10px;
-    margin-top:5px;
+    color:black;
     border:none;
+    padding:10px 18px;
+    border-radius:25px;
+    cursor:pointer;
+    margin:5px;
+    font-weight:bold;
+    transition:.2s;
+    box-shadow:0 0 10px var(--glow);
 }
-.freeze-btn{background:var(--accent);}
-.invalidate-btn{background:var(--danger);}
-.restore-btn{background:var(--success);}
-.status-indicator{
-    display:inline-block;width:10px;height:10px;border-radius:50%;
-    background:var(--primary);box-shadow:0 0 8px var(--primary);animation:pulse 2s infinite;
-}
-@keyframes pulse{50%{opacity:0.3;}}
+button:hover{ transform:scale(1.08); }
 
-img.preview{
-    max-width:100%;
-    margin-top:10px;
-    border-radius:8px;
+.restore-btn{ background:var(--success); }
+.invalidate-btn{ background:var(--danger); }
+.freeze-btn{ background:var(--warning); }
+
+.status {
+    margin-top:12px;
+    font-size:14px;
 }
 
+/* Blockchain */
 .block{
     border:1px solid var(--primary);
-    padding:18px;
+    margin-bottom:18px;
+    padding:15px;
     border-radius:10px;
-    margin-bottom:20px;
-    box-shadow:0 0 10px var(--primary-glow);
+    box-shadow:0 0 15px var(--glow);
+    animation:fade .4s ease;
 }
-.badge{padding:6px 12px;font-size:11px;font-weight:bold;border-radius:20px;color:#000;}
+@keyframes fade { from{opacity:0;} to{opacity:1;} }
+
+.badge{
+    padding:5px 10px;
+    border-radius:15px;
+    font-size:11px;
+    font-weight:bold;
+    color:black;
+}
+
 .valid{background:var(--success);}
 .invalid{background:var(--danger);}
-.frozen{background:var(--accent);}
+.frozen{background:var(--warning);}
+
+img.preview{
+    width:100%;
+    border-radius:10px;
+    margin-top:10px;
+    border:1px solid var(--primary);
+}
 </style>
 </head>
 
 <body>
 
-<h1>⚡ NEON EVIDENCE BLOCKCHAIN</h1>
+<h1>⚡ Evidence Blockchain System</h1>
 
 <div class="container">
 
 <div class="card">
     <h2>Add Evidence</h2>
 
-    <label>Evidence Text</label>
-    <textarea id="text" rows="5" placeholder="Enter evidence..."></textarea>
+    <label>Description</label>
+    <textarea id="text" rows="4"></textarea>
 
-    <label>Upload Image</label>
-    <input type="file" id="image">
+    <label>Upload Evidence Photo</label>
+    <input type="file" id="image" accept="image/*">
 
     <button onclick="addBlock()">Add Block</button>
     <button onclick="loadChain()">View Chain</button>
     <button onclick="validateChain()">Validate</button>
     <button class="restore-btn" onclick="restoreChain()">Restore Backup</button>
 
-    <p id="status" style="margin-top:10px;"><span class="status-indicator"></span> Ready</p>
+    <p id="status" class="status">🟢 System Ready</p>
 </div>
 
 <div class="card">
-    <h2>Blockchain</h2>
-    <div id="chainBox"></div>
+    <h2>Blockchain Data</h2>
+    <div id="chainBox">Click "View Chain" 👆</div>
 </div>
 
 </div>
+
 
 <script>
-const API = "https://block-chain-0xps.onrender.com";
+const API="https://block-chain-0xps.onrender.com";  // backend URL
 
-// ---------- ADD BLOCK ----------
+function setStatus(msg){ document.getElementById("status").innerHTML=msg; }
+
+// ADD BLOCK
 async function addBlock(){
-    const text = document.getElementById("text").value;
-    const file = document.getElementById("image").files[0];
-    if(!text.trim()) return setStatus("⚠ Enter valid evidence text.");
+    const text=document.getElementById("text").value;
+    const img=document.getElementById("image").files[0];
 
-    let fd = new FormData();
+    if(!text.trim()) return setStatus("⚠ Please enter text!");
+
+    let fd=new FormData();
     fd.append("text",text);
-    if(file) fd.append("image",file);
+    if(img) fd.append("image",img);
 
     setStatus("⏳ Adding block...");
 
-    let res = await fetch(API+"/addBlock",{method:"POST",body:fd});
-    await res.json();
-    setStatus("✔ Block Added Successfully");
-    clearInputs();
+    await fetch(API+"/addBlock",{ method:"POST", body:fd });
+    setStatus("✔ Block Added");
+    document.getElementById("text").value="";
+    document.getElementById("image").value="";
     loadChain();
 }
 
-// ---------- VIEW CHAIN ----------
+// LOAD CHAIN
 async function loadChain(){
-    setStatus("⏳ Loading...");
+    setStatus("⏳ Loading blockchain...");
     let res = await fetch(API+"/chain");
     let chain = await res.json();
-    const box=document.getElementById("chainBox");
+    let box=document.getElementById("chainBox");
     box.innerHTML="";
 
     chain.forEach(b=>{
         box.innerHTML+=`
         <div class="block">
             <span class="badge ${b.status}">${b.status.toUpperCase()}</span>
-            <p><b>Block #${b.index}</b></p>
-            <p>${b.text}</p>
-            <p><small><b>Hash:</b> ${b.hash}</small></p>
+            <h3>Block #${b.index}</h3>
+            <p><b>Text:</b> ${b.text}</p>
+            <p><b>Hash:</b> ${b.hash}</p>
+            <p><b>Previous:</b> ${b.previousHash}</p>
             ${b.imageId?`<img class="preview" src="${API}/file/${b.imageId}" onerror="this.remove()">`:""}
-            <br><br>
+            <br>
             <button class="freeze-btn" onclick="freezeBlock(${b.index})">Freeze</button>
             <button class="invalidate-btn" onclick="invalidateBlock(${b.index})">Invalidate</button>
         </div>`;
-    })
+    });
 
     setStatus(`✔ Loaded ${chain.length} blocks`);
 }
 
-// ---------- VALIDATE ----------
+// VALIDATE
 async function validateChain(){
-    setStatus("⏳ Validating...");
-    let res = await fetch(API+"/validate");
-    let data = await res.json();
-
-    if(data.valid) setStatus("✔ Blockchain VALID — No tampering detected");
-    else setStatus(`❌ INVALID — ${data.reason}`);
+    setStatus("🔍 Validating...");
+    let r = await fetch(API+"/validate");
+    let d = await r.json();
+    if(d.valid) setStatus("🟢 Blockchain VALID ✓");
+    else setStatus("❌ INVALID → "+d.reason);
 }
 
-// ---------- FREEZE ----------
+// FREEZE
 async function freezeBlock(i){
     await fetch(API+"/freeze/"+i,{method:"POST"});
     loadChain();
 }
 
-// ---------- INVALIDATE ----------
+// INVALIDATE
 async function invalidateBlock(i){
     await fetch(API+"/invalidate/"+i,{method:"POST"});
     loadChain();
 }
 
-// ---------- RESTORE from MASTER ----------
+// RESTORE
 async function restoreChain(){
-    setStatus("🔁 Restoring from master backup...");
+    setStatus("🔁 Restoring data...");
     await fetch(API+"/restore",{method:"POST"});
-    setStatus("✔ Recovery Successful — Public DB Restored");
+    setStatus("✔ Restored from Master Backup");
     loadChain();
 }
 
-// ---------- Utility ----------
-function setStatus(msg){
-    document.getElementById("status").innerHTML=`<span class="status-indicator"></span> ${msg}`;
-}
-function clearInputs(){
-    document.getElementById("text").value="";
-    document.getElementById("image").value="";
-}
-
+// Auto show chain at start
 loadChain();
 </script>
 
