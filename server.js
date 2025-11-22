@@ -16,9 +16,13 @@ app.use(express.static("public"));
 const JWT_SECRET = "SUPER_SECRET_KEY";
 
 // 🟢 DEFAULT ROUTE → LOGIN PAGE
+// Serve login page first ALWAYS
 app.get("/", (req, res) => {
   res.sendFile(process.cwd() + "/public/login.html");
 });
+
+// After defining root route THEN serve static folder
+app.use(express.static("public"));
 
 // ------------------ DB CONNECT ------------------
 console.log("⏳ Connecting to MongoDB...");
