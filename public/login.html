@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Login | Evidence Blockchain System</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+:root{
+ --primary:#00f7ff;
+ --glow:#00ffee50;
+ --danger:#ff3b53;
+ --bg:#020202;
+}
+
+body{
+  background:var(--bg);
+  color:var(--primary);
+  font-family: 'Segoe UI', sans-serif;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+  margin:0;
+}
+
+.container{
+  width:300px;
+  background:rgba(0,0,0,.5);
+  border:1px solid var(--primary);
+  padding:25px;
+  border-radius:15px;
+  box-shadow:0 0 25px var(--glow);
+  text-align:center;
+}
+
+h1{
+ font-size:22px;
+ margin-bottom:20px;
+ text-shadow:0 0 15px var(--primary);
+}
+
+input{
+ width:100%;
+ padding:10px;
+ margin:10px 0;
+ background:#000;
+ border:1px solid var(--primary);
+ border-radius:8px;
+ color:var(--primary);
+}
+
+button{
+ width:100%;
+ padding:12px;
+ background:var(--primary);
+ color:black;
+ border:none;
+ border-radius:25px;
+ font-weight:bold;
+ cursor:pointer;
+ margin-top:10px;
+ box-shadow:0 0 10px var(--glow);
+ transition:0.3s;
+}
+
+button:hover{
+ transform:scale(1.05);
+}
+
+#msg{
+ margin-top:10px;
+ font-size:14px;
+ height:18px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+ <h1>🔐 Login</h1>
+
+ <input type="text" id="username" placeholder="Username">
+ <input type="password" id="password" placeholder="Password">
+
+ <button onclick="login()">Login</button>
+
+ <p id="msg"></p>
+</div>
+
+
+<script>
+const API="https://block-chain-0xps.onrender.com";
+
+async function login(){
+  let username=document.getElementById("username").value;
+  let password=document.getElementById("password").value;
+
+  const res=await fetch(API+"/auth/login",{
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({username,password})
+  });
+
+  let data=await res.json();
+
+  if(data.error){
+     document.getElementById("msg").innerHTML="❌ "+data.error;
+     return;
+  }
+
+  // Save token
+  localStorage.setItem("token",data.token);
+  localStorage.setItem("role",data.role);
+
+  document.getElementById("msg").innerHTML="✔ Login successful";
+
+  setTimeout(()=>{
+    if(data.role==="admin") window.location="admin.html";
+    else window.location="staff.html";
+  },700);
+}
+</script>
+
+</body>
+</html>
