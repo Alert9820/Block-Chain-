@@ -11,36 +11,32 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 app.use(cors());
-app.use(express.static("public"));
 
-const JWT_SECRET = "SUPER_SECRET_KEY";
-
-// 🟢 DEFAULT ROUTE → LOGIN PAGE
-// Serve login page first ALWAYS
+// ---------------------- STATIC + LOGIN REDIRECT ----------------------
 app.get("/", (req, res) => {
   res.sendFile(process.cwd() + "/public/login.html");
 });
-
-// After defining root route THEN serve static folder
 app.use(express.static("public"));
 
-// ------------------ DB CONNECT ------------------
+// ---------------------- JWT SECRET ----------------------
+const JWT_SECRET = "SUPER_SECRET_KEY";
+
+// ---------------------- DATABASE ----------------------
 console.log("⏳ Connecting to MongoDB...");
 await mongoose.connect(process.env.MONGO_URL);
 console.log("🔥 MongoDB Connected");
 
-// ---------------- GRID FS ----------------
+// ---------------------- GRIDFS ----------------------
 let bucket = null;
 mongoose.connection.once("open", () => {
   bucket = new GridFSBucket(mongoose.connection.db, { bucketName: "evidenceFiles" });
   console.log("📦 GridFS Ready");
 });
 
-// ---------------- HELPERS ----------------
-const generateHash = text => crypto.createHash("sha256").update(text).digest("hex");
+// ---------------------- MULTER ----------------------
 const upload = multer({ storage: multer.memoryStorage() });
 
-// ---------------- SCHEMAS ----------------
+// ---------------------- MODELS ----------------------
 const BlockSchema = {
   index: Number,
   timestamp: String,
@@ -57,11 +53,16 @@ const MasterBlock = mongoose.model("masterBlocks", BlockSchema);
 
 const Meta = mongoose.model("metaRecords", { key: String, value: String });
 
-const User = mongoose.model("users", {
-  username: String,
-  password: String,
-  role: String
-});
+// ⭐ USERS collection name = "UX"
+const User = mongoose.model(
+  "UX", 
+  new mongoose.Schema({
+    username: String,
+    password: String,
+    role: String
+  }),
+  "UX"
+);
 
 const RestoreRequest = mongoose.model("restoreRequests", {
   user: String,
@@ -71,58 +72,68 @@ const RestoreRequest = mongoose.model("restoreRequests", {
   timestamp: String
 });
 
-// ---------------- DEFAULT USERS ----------------
-(async () => {
-  if (await User.countDocuments() === 0) {
-    await User.create({ username: "admin", password: "admin123", role: "admin" });
-    await User.create({ username: "staff", password: "staff123", role: "staff" });
-    console.log("👤 Default Accounts Ready → (admin/admin123 & staff/staff123)");
-  }
-})();
+// ---------------------- DEFAULT USERS (RUN AFTER DB READY) ----------------------
+mongoose.connection.once("open", async () => {
+  const count = await User.countDocuments();
+  if (count === 0) {
+    await User.insertMany([
+      { username: "admin", password: "admin123", role: "admin" },
+      { username: "staff", password: "staff123", role: "staff" }
+    ]);
 
-// ---------------- AUTH MIDDLEWARE ----------------
+    console.log("👤 Default UX users created:");
+    console.log("➡ admin/admin123");
+    console.log("➡ staff/staff123");
+  } else {
+    console.log("✔ UX users already exist — skipping creation.");
+  }
+});
+
+// ---------------------- AUTH MIDDLEWARE ----------------------
 function auth(role) {
   return (req, res, next) => {
     const token = req.headers.authorization;
-    if (!token) return res.status(403).json({ error: "Token Missing" });
+    if (!token) return res.json({ error: "Token missing" });
 
     try {
       const decoded = jwt.verify(token, JWT_SECRET);
-      if (role && decoded.role !== role) return res.json({ error: "Permission Denied" });
+      if (role && decoded.role !== role) return res.json({ error: "Permission denied" });
 
       req.user = decoded;
       next();
     } catch {
-      return res.status(403).json({ error: "Invalid Token" });
+      res.json({ error: "Invalid token" });
     }
   };
 }
 
-// ---------------- LOGIN ----------------
+// ---------------------- LOGIN ROUTE ----------------------
 app.post("/auth/login", async (req, res) => {
   const { username, password } = req.body;
-  const u = await User.findOne({ username });
 
-  if (!u) return res.json({ error: "User not found" });
-  if (password !== u.password) return res.json({ error: "Wrong password" });
+  const user = await User.findOne({ username });
 
-  const token = jwt.sign({ username, role: u.role }, JWT_SECRET);
-  res.json({ token, role: u.role });
+  if (!user) return res.json({ error: "User not found" });
+  if (user.password !== password) return res.json({ error: "Wrong password" });
+
+  const token = jwt.sign({ username: user.username, role: user.role }, JWT_SECRET);
+  res.json({ token, role: user.role });
 });
 
-// ---------------- GET LATEST BLOCK ----------------
+// ---------------------- BLOCKCHAIN FUNCTIONS ----------------------
+const generateHash = text => crypto.createHash("sha256").update(text).digest("hex");
+
 async function getLatest() {
   return await PublicBlock.findOne().sort({ index: -1 });
 }
 
-// ---------------- ADD BLOCK ----------------
 app.post("/addBlock", upload.single("image"), async (req, res) => {
   try {
     let imageHash = "";
     let imageId = "";
 
     if (req.file) {
-      if (!bucket) return res.json({ error: "Storage not ready, retry." });
+      if (!bucket) return res.json({ error: "Storage initializing, try again." });
 
       imageHash = generateHash(req.file.buffer);
       const stream = bucket.openUploadStream(Date.now() + "-" + req.file.originalname);
@@ -130,10 +141,10 @@ app.post("/addBlock", upload.single("image"), async (req, res) => {
       imageId = stream.id.toString();
     }
 
-    const prev = await getLatest();
-    const index = prev ? prev.index + 1 : 1;
+    const latest = await getLatest();
+    const index = latest ? latest.index + 1 : 1;
     const timestamp = new Date().toISOString();
-    const previousHash = prev ? prev.hash : "0";
+    const previousHash = latest ? latest.hash : "0";
     const hash = generateHash(req.body.text + imageHash + timestamp + previousHash);
 
     const block = { index, timestamp, text: req.body.text, imageHash, imageId, previousHash, hash };
@@ -144,28 +155,27 @@ app.post("/addBlock", upload.single("image"), async (req, res) => {
 
     res.json({ success: true, block });
 
-  } catch {
+  } catch (err) {
     res.json({ error: "Block creation failed" });
   }
 });
 
-// ---------------- DISPLAY CHAIN ----------------
 app.get("/chain", async (_, res) => {
   res.json(await PublicBlock.find().sort({ index: 1 }));
 });
 
-// ---------------- ADMIN CONTROLS ----------------
-app.post("/freeze/:i", auth("admin"), async (req, res) => {
-  await PublicBlock.updateOne({ index: req.params.i }, { status: "frozen" });
-  res.json({ ok: true });
+// ---------------------- ADMIN ACTIONS ----------------------
+app.post("/freeze/:id", auth("admin"), async (req, res) => {
+  await PublicBlock.updateOne({ index: req.params.id }, { status: "frozen" });
+  res.json({ done: true });
 });
 
-app.post("/invalidate/:i", auth("admin"), async (req, res) => {
-  await PublicBlock.updateOne({ index: req.params.i }, { status: "invalid" });
-  res.json({ ok: true });
+app.post("/invalidate/:id", auth("admin"), async (req, res) => {
+  await PublicBlock.updateOne({ index: req.params.id }, { status: "invalid" });
+  res.json({ done: true });
 });
 
-// ---------------- VALIDATION ----------------
+// ---------------------- VALIDATE CHAIN ----------------------
 app.get("/validate", async (_, res) => {
   const chain = await PublicBlock.find().sort({ index: 1 });
   const meta = await Meta.findOne({ key: "lastHash" });
@@ -183,7 +193,7 @@ app.get("/validate", async (_, res) => {
   res.json({ valid: true });
 });
 
-// ---------------- RESTORE REQUESTS ----------------
+// ---------------------- RESTORE REQUEST SYSTEM ----------------------
 app.post("/restore/request", auth("staff"), async (req, res) => {
   await RestoreRequest.create({
     user: req.user.username,
@@ -200,14 +210,14 @@ app.get("/restore/requests", auth("admin"), async (_, res) => {
 });
 
 app.post("/restore/approve/:id", auth("admin"), async (req, res) => {
-  const r = await RestoreRequest.findById(req.params.id);
+  const request = await RestoreRequest.findById(req.params.id);
 
   const full = await MasterBlock.find().sort({ index: 1 });
   await PublicBlock.deleteMany({});
   for (let b of full) await PublicBlock.create(JSON.parse(JSON.stringify(b)));
 
-  r.status = "approved";
-  await r.save();
+  request.status = "approved";
+  await request.save();
 
   res.json({ restored: true });
 });
@@ -217,14 +227,14 @@ app.post("/restore/reject/:id", auth("admin"), async (req, res) => {
   res.json({ rejected: true });
 });
 
-// ---------------- FETCH FILE ----------------
+// ---------------------- FILE FETCH ----------------------
 app.get("/file/:id", (req, res) => {
   try {
     bucket.openDownloadStream(new mongoose.Types.ObjectId(req.params.id)).pipe(res);
   } catch {
-    res.status(404).send("File Missing");
+    res.status(404).send("File missing");
   }
 });
 
-// ---------------- SERVER ----------------
-app.listen(10000, () => console.log("🚀 Running on PORT 10000"));
+// ---------------------- START SERVER ----------------------
+app.listen(10000, () => console.log("🚀 Server Live on 10000"));
