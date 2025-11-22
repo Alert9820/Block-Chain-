@@ -10,6 +10,7 @@
  --primary:#00f7ff;
  --glow:#00ffee50;
  --danger:#ff3b53;
+ --success:#00ff72;
  --bg:#020202;
 }
 
@@ -36,7 +37,7 @@ body{
 
 h1{
  font-size:22px;
- margin-bottom:20px;
+ margin-bottom:15px;
  text-shadow:0 0 15px var(--primary);
 }
 
@@ -64,9 +65,7 @@ button{
  transition:0.3s;
 }
 
-button:hover{
- transform:scale(1.05);
-}
+button:hover{ transform:scale(1.05); }
 
 #msg{
  margin-top:10px;
@@ -81,40 +80,65 @@ button:hover{
 <div class="container">
  <h1>🔐 Login</h1>
 
- <input type="text" id="username" placeholder="Username">
- <input type="password" id="password" placeholder="Password">
+ <input type="text" id="username" placeholder="Enter Username">
+ <input type="password" id="password" placeholder="Enter Password">
 
- <button onclick="login()">Login</button>
+ <button id="loginBtn" onclick="login()">Login</button>
 
  <p id="msg"></p>
 </div>
 
-
 <script>
 const API="https://block-chain-0xps.onrender.com";
 
+// 🔥 Auto redirect if already logged in
+window.onload = () => {
+  const token = localStorage.getItem("token");
+  const role = localStorage.getItem("role");
+
+  if(token && role){
+    if(role==="admin") window.location="admin.html";
+    else window.location="staff.html";
+  }
+};
+
+// LOGIN FUNCTION
 async function login(){
-  let username=document.getElementById("username").value;
-  let password=document.getElementById("password").value;
+  const user=document.getElementById("username").value.trim();
+  const pass=document.getElementById("password").value.trim();
+  const msg=document.getElementById("msg");
+  const btn=document.getElementById("loginBtn");
 
-  const res=await fetch(API+"/auth/login",{
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body:JSON.stringify({username,password})
-  });
-
-  let data=await res.json();
-
-  if(data.error){
-     document.getElementById("msg").innerHTML="❌ "+data.error;
-     return;
+  if(!user || !pass){
+    msg.innerHTML="⚠ Please enter credentials";
+    return;
   }
 
-  // Save token
+  btn.disabled=true;
+  btn.innerText="Processing...";
+
+  const res = await fetch(API+"/auth/login",{
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({username:user,password:pass})
+  });
+
+  const data=await res.json();
+
+  if(data.error){
+    msg.style.color="var(--danger)";
+    msg.innerHTML="❌ "+data.error;
+    btn.disabled=false;
+    btn.innerText="Login";
+    return;
+  }
+
+  // Success
+  msg.style.color="var(--success)";
+  msg.innerHTML="✔ Login Successful";
+
   localStorage.setItem("token",data.token);
   localStorage.setItem("role",data.role);
-
-  document.getElementById("msg").innerHTML="✔ Login successful";
 
   setTimeout(()=>{
     if(data.role==="admin") window.location="admin.html";
@@ -122,6 +146,5 @@ async function login(){
   },700);
 }
 </script>
-
 </body>
 </html>
