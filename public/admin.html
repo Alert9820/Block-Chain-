@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Admin Panel | Evidence Blockchain</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+:root{
+  --primary:#00f7ff;
+  --glow:#00ffee55;
+  --danger:#ff3b53;
+  --success:#00ff95;
+  --warning:#ffc400;
+  --bg:#020202;
+}
+
+body{
+  background:var(--bg);
+  color:var(--primary);
+  margin:0;
+  font-family:"Segoe UI",sans-serif;
+}
+
+header{
+  background:rgba(0,0,0,.5);
+  padding:15px;
+  text-align:center;
+  font-size:22px;
+  box-shadow:0 0 15px var(--glow);
+}
+
+.container{
+  width:92%;
+  margin:auto;
+  padding:20px;
+}
+
+.section{
+  background:rgba(0,0,0,.4);
+  border:1px solid var(--primary);
+  padding:20px;
+  border-radius:15px;
+  box-shadow:0 0 20px var(--glow);
+  margin-bottom:25px;
+}
+
+h2{
+  margin-top:0;
+  text-shadow:0 0 10px var(--primary);
+}
+
+button{
+  padding:10px 18px;
+  border:none;
+  cursor:pointer;
+  border-radius:20px;
+  font-weight:bold;
+  margin:5px;
+  transition:.3s;
+}
+
+.logout-btn{ background:var(--danger); }
+.action-btn{ background:var(--primary); color:black; }
+.approve-btn{ background:var(--success); }
+.reject-btn{ background:var(--danger); }
+
+button:hover{ transform:scale(1.08); }
+
+.block, .request{
+  border:1px solid var(--primary);
+  padding:15px;
+  border-radius:10px;
+  margin-top:10px;
+  box-shadow:0 0 15px var(--glow);
+}
+
+.badge{
+  padding:5px 10px;
+  border-radius:10px;
+  font-size:12px;
+  color:black;
+  font-weight:bold;
+}
+
+.valid{background:var(--success);}
+.invalid{background:var(--danger);}
+.frozen{background:var(--warning);}
+
+#msg{
+  margin-top:10px;
+  font-size:14px;
+}
+</style>
+</head>
+<body>
+
+<header>
+  👑 Admin Control Panel
+  <button class="logout-btn" style="float:right;" onclick="logout()">Logout</button>
+</header>
+
+<div class="container">
+
+<!-- Blockchain Section -->
+<div class="section">
+  <h2>📦 Blockchain Records</h2>
+  <button class="action-btn" onclick="loadChain()">Refresh Chain</button>
+  <div id="chain"></div>
+</div>
+
+<!-- Restore Request Section -->
+<div class="section">
+  <h2>📩 Pending Restore Requests</h2>
+
+  <button class="action-btn" onclick="loadRequests()">Refresh Requests</button>
+
+  <div id="requests"></div>
+</div>
+
+<p id="msg"></p>
+</div>
+
+<script>
+const API="https://block-chain-0xps.onrender.com";
+const token=localStorage.getItem("token");
+const role=localStorage.getItem("role");
+
+if(!token || role!=="admin"){
+  alert("❌ Access Denied");
+  window.location="login.html";
+}
+
+// LOGOUT
+function logout(){
+  localStorage.clear();
+  window.location="login.html";
+}
+
+// LOAD BLOCKCHAIN
+async function loadChain(){
+  const res=await fetch(API+"/chain");
+  const data=await res.json();
+
+  let html="";
+  data.forEach(b=>{
+    html+=`
+      <div class="block">
+        <b>Block #${b.index}</b><br>
+        Status: <span class="badge ${b.status}">${b.status}</span><br>
+        Text: ${b.text}<br>
+        Hash: ${b.hash}<br>
+        Previous: ${b.previousHash}<br>
+      </div>`;
+  });
+
+  document.getElementById("chain").innerHTML=html || "No blocks found.";
+}
+
+// LOAD RESTORE REQUESTS
+async function loadRequests(){
+  const res=await fetch(API+"/restore/requests",{
+    headers:{ authorization:token }
+  });
+
+  const data=await res.json();
+  let html="";
+
+  data.forEach(r=>{
+    html+=`
+    <div class="request">
+      <b>Request #${r._id}</b><br>
+      User: ${r.user}<br>
+      Block: ${r.blockIndex}<br>
+      Reason: ${r.reason}<br>
+      Status: <b>${r.status}</b><br><br>
+
+      ${r.status==="pending"
+      ? `<button class="approve-btn" onclick="approve('${r._id}')">Approve</button>
+         <button class="reject-btn" onclick="rejectReq('${r._id}')">Reject</button>`
+      : `<i>Action completed</i>`}
+    </div>`;
+  });
+
+  document.getElementById("requests").innerHTML=html || "No pending requests.";
+}
+
+// APPROVE
+async function approve(id){
+  await fetch(`${API}/restore/approve/${id}`,{
+    method:"POST",
+    headers:{ authorization:token }
+  });
+
+  document.getElementById("msg").innerHTML="✔ Restore Approved & Chain Updated";
+  loadRequests(); loadChain();
+}
+
+// REJECT
+async function rejectReq(id){
+  await fetch(`${API}/restore/reject/${id}`,{
+    method:"POST",
+    headers:{ authorization:token }
+  });
+
+  document.getElementById("msg").innerHTML="❌ Request Rejected";
+  loadRequests();
+}
+
+loadChain();
+loadRequests();
+</script>
+
+</body>
+</html>
