@@ -82,12 +82,13 @@ const metaSchema = new mongoose.Schema({
 });
 const Meta = mongoose.model("Meta", metaSchema);
 
+// ✅ UX MODEL USE KARO - Aapke existing collection ke liye
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   role: { type: String, required: true, enum: ["admin", "staff"] }
 });
-const User = mongoose.model("User", userSchema);
+const User = mongoose.model("UX", userSchema); // ✅ UX collection use karo
 
 const logSchema = new mongoose.Schema({
   username: { type: String, required: true },
@@ -109,13 +110,24 @@ const RestoreRequest = mongoose.model("RestoreRequest", restoreRequestSchema);
 // ---------- INITIAL SETUP ----------
 const initializeDefaults = async () => {
   try {
+    // ✅ UX model use karo
     const userCount = await User.countDocuments();
+    console.log("🔍 Current users in UX collection:", userCount);
+    
     if (userCount === 0) {
       await User.create([
         { username: "admin", password: "admin123", role: "admin" },
         { username: "staff", password: "staff123", role: "staff" }
       ]);
-      console.log("👤 Default users created");
+      console.log("✅ Default users created in UX collection");
+      
+      // Debug: Print created users
+      const createdUsers = await User.find({});
+      console.log("📋 Created users:", createdUsers);
+    } else {
+      // Debug: Print existing users
+      const existingUsers = await User.find({});
+      console.log("📋 Existing users in UX:", existingUsers);
     }
     
     // Create genesis block if doesn't exist
@@ -136,7 +148,7 @@ const initializeDefaults = async () => {
       console.log("🔗 Genesis block created");
     }
   } catch (error) {
-    console.error("Initialization error:", error);
+    console.error("💥 Initialization error:", error);
   }
 };
 
@@ -151,7 +163,7 @@ const authenticate = (requiredRole = null) => {
 
       const decoded = jwt.verify(token, JWT_SECRET);
       
-      // Verify user still exists
+      // ✅ UX model use karo
       const user = await User.findOne({ username: decoded.username });
       if (!user) {
         return res.status(401).json({ error: "User not found" });
@@ -199,23 +211,58 @@ app.get("/health", (req, res) => {
   });
 });
 
+// ---------- DEBUG ROUTES ----------
+app.get("/debug-db", async (req, res) => {
+  try {
+    const allUsers = await User.find({});
+    const allBlocks = await PublicBlock.find({});
+    
+    console.log("🔍 DEBUG - UX Collection:", allUsers);
+    console.log("🔍 DEBUG - PublicBlocks:", allBlocks);
+    
+    res.json({ 
+      collection: "UX",
+      users: allUsers,
+      blocks: allBlocks,
+      userCount: allUsers.length,
+      blockCount: allBlocks.length
+    });
+  } catch (error) {
+    console.error("💥 DATABASE DEBUG ERROR:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ---------- AUTH ROUTES ----------
 app.post("/auth/login", async (req, res) => {
   try {
     const { username, password } = req.body;
     
+    console.log("🔐 LOGIN ATTEMPT - Username:", username);
+    
     if (!username || !password) {
       return res.status(400).json({ error: "Username and password required" });
     }
 
+    // ✅ UX model use karo
     const user = await User.findOne({ username });
+    console.log("👤 FOUND USER:", user);
+
     if (!user) {
+      console.log("❌ USER NOT FOUND");
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
+    console.log("🔑 INPUT PASSWORD:", password);
+    console.log("🔑 STORED PASSWORD:", user.password);
+    console.log("🔑 PASSWORDS MATCH:", password === user.password);
+
     if (password !== user.password) {
+      console.log("❌ WRONG PASSWORD");
       return res.status(401).json({ error: "Invalid credentials" });
     }
+
+    console.log("✅ LOGIN SUCCESSFUL");
 
     const token = jwt.sign(
       { username: user.username, role: user.role }, 
@@ -232,7 +279,33 @@ app.post("/auth/login", async (req, res) => {
       username: user.username
     });
   } catch (error) {
-    console.error("Login error:", error);
+    console.error("💥 Login error:", error);
+    res.status(500).json({ error: "Login failed" });
+  }
+});
+
+// ✅ TEST LOGIN ROUTE (Backup ke liye)
+app.post("/auth/login-test", async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    
+    console.log("🧪 TEST LOGIN - Username:", username);
+
+    // Direct hardcoded check
+    if (username === "admin" && password === "admin123") {
+      const token = jwt.sign({ username, role: "admin" }, JWT_SECRET);
+      return res.json({ success: true, token, role: "admin", username });
+    }
+    if (username === "staff" && password === "staff123") {
+      const token = jwt.sign({ username, role: "staff" }, JWT_SECRET);
+      return res.json({ success: true, token, role: "staff", username });
+    }
+
+    console.log("❌ TEST LOGIN FAILED");
+    return res.status(401).json({ error: "Invalid credentials" });
+    
+  } catch (error) {
+    console.error("💥 TEST LOGIN ERROR:", error);
     res.status(500).json({ error: "Login failed" });
   }
 });
@@ -620,6 +693,7 @@ app.listen(PORT, async () => {
   await initializeDefaults();
   console.log(`🚀 Evidence Blockchain System running on port ${PORT}`);
   console.log(`📍 Access the system at: http://localhost:${PORT}`);
+  console.log(`🔍 Debug database: http://localhost:${PORT}/debug-db`);
 });
 
 export default app;
