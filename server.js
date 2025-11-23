@@ -11,26 +11,44 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 app.use(cors());
+
+const JWT_SECRET = "SUPER_SECRET_256_KEY";
+
+// ---------- PAGE ROUTING (IMPORTANT) ----------
+app.get("/", (req, res) => {
+  res.sendFile(process.cwd() + "/public/login.html");
+});
+
 app.use(express.static("public"));
 
-const JWT_SECRET = "SUPER_SECRET_KEY";
+app.get("/admin", (req, res) => {
+  res.sendFile(process.cwd() + "/public/admin.html");
+});
 
-// ------------------- DB CONNECT -------------------
+app.get("/staff", (req, res) => {
+  res.sendFile(process.cwd() + "/public/staff.html");
+});
+
+
+// ---------- DB CONNECT ----------
 await mongoose.connect(process.env.MONGO_URL);
 console.log("🔥 MongoDB Connected");
 
-// ------------------- GRIDFS ------------------------
+
+// ---------- GRIDFS ----------
 let bucket = null;
 mongoose.connection.once("open", () => {
-  bucket = new GridFSBucket(mongoose.connection.db, { bucketName: "files" });
-  console.log("📦 Storage Ready");
+  bucket = new GridFSBucket(mongoose.connection.db, { bucketName: "evidenceFiles" });
+  console.log("📦 Evidence Storage Ready");
 });
 
-// ------------------- HELPERS -----------------------
+
+// ---------- UTILITIES ----------
 const hashGen = buffer => crypto.createHash("sha256").update(buffer).digest("hex");
 const upload = multer({ storage: multer.memoryStorage() });
 
-// ------------------- DB MODELS ---------------------
+
+// ---------- MODELS ----------
 const BlockSchema = {
   index: Number,
   timestamp: String,
@@ -39,13 +57,13 @@ const BlockSchema = {
   imageHash: String,
   previousHash: String,
   hash: String,
-  status: { type: String, default: "valid" }
+  status: { type: String, default: "Valid" }
 };
 
-const PublicBlock = mongoose.model("publicBlocks", BlockSchema);
-const MasterBlock = mongoose.model("masterBlocks", BlockSchema);
+const PublicBlock = mongoose.model("publicBlockchain", BlockSchema);
+const MasterBlock = mongoose.model("masterBlockchain", BlockSchema);
 
-const Meta = mongoose.model("metaTable", { key: String, value: String });
+const Meta = mongoose.model("metaHashStorage", { key: String, value: String });
 
 const User = mongoose.model("UX", {
   username: String,
@@ -53,36 +71,39 @@ const User = mongoose.model("UX", {
   role: String
 });
 
-const Activity = mongoose.model("activityLogs", {
-  user: String,
-  message: String,
-  time: String
-});
-
 const RestoreRequest = mongoose.model("restoreRequests", {
   user: String,
   blockIndex: Number,
   reason: String,
-  status: { type: String, default: "pending" },
+  status: { type: String, default: "Pending" },
   time: String
 });
 
-// -------- Default Users (first time only) ----------
+const Activity = mongoose.model("systemLogs", {
+  user: String,
+  action: String,
+  time: String
+});
+
+
+// ---------- TRACK USERS ----------
 if (await User.countDocuments() === 0) {
   await User.create({ username: "admin", password: "admin123", role: "admin" });
   await User.create({ username: "staff", password: "staff123", role: "staff" });
-  console.log("👤 Accounts Ready: admin/admin123 | staff/staff123");
+  console.log("✔ Default Accounts Ready");
 }
 
-// ------------------- MIDDLEWARE --------------------
+
+// ---------- AUTH MIDDLEWARE ----------
 function auth(role = null) {
   return (req, res, next) => {
     const token = req.headers.authorization;
-    if (!token) return res.json({ error: "Access Denied: Login First" });
+    if (!token) return res.json({ error: "Login Required" });
 
     try {
       const decoded = jwt.verify(token, JWT_SECRET);
-      if (role && decoded.role !== role) return res.json({ error: "Forbidden" });
+      if (role && decoded.role !== role) return res.json({ error: "Access Denied" });
+
       req.user = decoded;
       next();
     } catch {
@@ -91,88 +112,96 @@ function auth(role = null) {
   };
 }
 
-// ------------------- LOGIN -------------------------
+
+// ---------- LOGIN ----------
 app.post("/auth/login", async (req, res) => {
-  const user = await User.findOne({ username: req.body.username });
+  const { username, password } = req.body;
+  const u = await User.findOne({ username });
 
-  if (!user) return res.json({ error: "Username incorrect" });
-  if (user.password !== req.body.password) return res.json({ error: "Wrong password" });
+  if (!u) return res.json({ error: "User not found" });
+  if (password !== u.password) return res.json({ error: "Incorrect Password" });
 
-  const token = jwt.sign({ username: user.username, role: user.role }, JWT_SECRET);
+  const token = jwt.sign({ username: u.username, role: u.role }, JWT_SECRET);
 
-  await Activity.create({ user: user.username, message: "Logged in", time: new Date().toISOString() });
+  await Activity.create({ user: u.username, action: "Logged In", time: new Date().toISOString() });
 
-  res.json({ token, role: user.role });
+  res.json({ token, role: u.role });
 });
 
-// ------------------- LOGOUT LOG --------------------
+
+// ---------- LOGOUT ----------
 app.post("/activity/logout", auth(), async (req, res) => {
-  await Activity.create({ user: req.user.username, message: "Logged out", time: new Date().toISOString() });
+  await Activity.create({ user: req.user.username, action: "Logged Out", time: new Date().toISOString() });
   res.json({ done: true });
 });
 
-// ------------------- BLOCKCHAIN FUNCTIONS ----------
-async function getLatest() {
+
+// ---------- LATEST BLOCK ----------
+async function latestBlock() {
   return await PublicBlock.findOne().sort({ index: -1 });
 }
 
-// ADD EVIDENCE
+
+// ---------- ADD BLOCK ----------
 app.post("/addBlock", auth("staff"), upload.single("image"), async (req, res) => {
+  if (!bucket) return res.json({ error: "System warming up. Try again." });
+
   let imgHash = "", imgId = "";
-
   if (req.file) {
-    if (!bucket) return res.json({ error: "Storage starting... retry" });
-
     imgHash = hashGen(req.file.buffer);
     const stream = bucket.openUploadStream(Date.now() + "-" + req.file.originalname);
     stream.end(req.file.buffer);
     imgId = stream.id.toString();
   }
 
-  const prev = await getLatest();
+  const prev = await latestBlock();
   const index = prev ? prev.index + 1 : 1;
   const timestamp = new Date().toISOString();
   const prevHash = prev ? prev.hash : "0";
-  const hash = hashGen(Buffer.from(req.body.text + imgHash + timestamp + prevHash));
 
-  const block = { index, timestamp, text: req.body.text, imageId: imgId, imageHash: imgHash, previousHash: prevHash, hash };
+  const newHash = hashGen(Buffer.from(req.body.text + imgHash + timestamp + prevHash));
+
+  const block = { index, timestamp, text: req.body.text, imageId: imgId, imageHash: imgHash, previousHash: prevHash, hash: newHash };
 
   await PublicBlock.create(block);
   await MasterBlock.create(block);
-  await Meta.findOneAndUpdate({ key: "lastHash" }, { value: hash }, { upsert: true });
+  await Meta.findOneAndUpdate({ key: "lastHash" }, { value: newHash }, { upsert: true });
 
   res.json({ success: true });
 });
 
-// STAFF VIEW
+
+// ---------- STAFF LIMITED VIEW ----------
 app.get("/chain/staff", auth("staff"), async (req, res) => {
-  let chain = await PublicBlock.find().sort({ index: 1 });
-  chain = chain.map(b => ({ index: b.index, text: b.text, status: b.status, timestamp: b.timestamp }));
-  res.json(chain);
+  const blocks = await PublicBlock.find().sort({ index: 1 });
+  res.json(blocks.map(b => ({ index: b.index, text: b.text, status: b.status, timestamp: b.timestamp })));
 });
 
-// ADMIN VIEW
+
+// ---------- ADMIN FULL VIEW ----------
 app.get("/chain/admin", auth("admin"), async (req, res) => {
   res.json(await PublicBlock.find().sort({ index: 1 }));
 });
 
-// ------------------- VALIDATION ---------------------
+
+// ---------- VALIDATION ----------
 app.get("/validate", auth(), async (req, res) => {
   const chain = await PublicBlock.find().sort({ index: 1 });
   const meta = await Meta.findOne({ key: "lastHash" });
 
-  if (!chain.length) return res.json({ valid: true, msg: "📦 Blockchain Empty (Safe)" });
+  if (!chain.length) return res.json({ valid: true, msg: "📦 Blockchain Safe (Empty)" });
 
   for (let i = 0; i < chain.length; i++)
-    if (chain[i].index !== i + 1) return res.json({ valid: false, msg: "⚠ Missing Block detected" });
+    if (chain[i].index !== i + 1) return res.json({ valid: false, msg: "⚠ Block Missing" });
 
   if (meta.value !== chain.at(-1).hash)
-    return res.json({ valid: false, msg: "⚠ Someone tried to delete last block!" });
+    return res.json({ valid: false, msg: "⚠ Someone attempted tampering!" });
 
   res.json({ valid: true, msg: "✔ Blockchain Safe" });
 });
 
-// ------------------- IMAGE REVEAL (ADMIN ONLY) -----
+
+// ---------- VIEW IMAGE ----------
 app.get("/reveal/:id", auth("admin"), (req, res) => {
   try {
     bucket.openDownloadStream(new mongoose.Types.ObjectId(req.params.id)).pipe(res);
@@ -181,19 +210,22 @@ app.get("/reveal/:id", auth("admin"), (req, res) => {
   }
 });
 
-// ------------------- FREEZE -------------------------
+
+// ---------- FREEZE ----------
 app.post("/freeze/:id", auth("admin"), async (req, res) => {
   await PublicBlock.updateOne({ index: req.params.id }, { status: "Frozen" });
   res.json({ done: true });
 });
 
-// ------------------- INVALIDATE ---------------------
+
+// ---------- INVALIDATE ----------
 app.post("/invalidate/:id", auth("admin"), async (req, res) => {
   await PublicBlock.updateOne({ index: req.params.id }, { status: "Invalidated" });
   res.json({ done: true });
 });
 
-// ------------------- RESTORE SYSTEM -----------------
+
+// ---------- RESTORE REQUEST ----------
 app.post("/restore/request", auth("staff"), async (req, res) => {
   await RestoreRequest.create({
     user: req.user.username,
@@ -205,19 +237,19 @@ app.post("/restore/request", auth("staff"), async (req, res) => {
   res.json({ sent: true });
 });
 
-app.get("/restore/requests", auth("admin"), async (_, res) => {
+app.get("/restore/requests", auth("admin"), async (req, res) => {
   res.json(await RestoreRequest.find());
 });
 
 app.post("/restore/approve/:id", auth("admin"), async (req, res) => {
-  const r = await RestoreRequest.findById(req.params.id);
-  const full = await MasterBlock.find().sort({ index: 1 });
+  const reqObj = await RestoreRequest.findById(req.params.id);
 
+  const full = await MasterBlock.find().sort({ index: 1 });
   await PublicBlock.deleteMany({});
   for (let b of full) await PublicBlock.create(JSON.parse(JSON.stringify(b)));
 
-  r.status = "Approved";
-  await r.save();
+  reqObj.status = "Approved";
+  await reqObj.save();
 
   res.json({ restored: true });
 });
@@ -227,10 +259,12 @@ app.post("/restore/reject/:id", auth("admin"), async (req, res) => {
   res.json({ rejected: true });
 });
 
-// ------------------- LOAD ACTIVITY -------------------
-app.get("/logs", auth("admin"), async (_, res) => {
-  res.json(await Activity.find().sort({ _id: -1 }).limit(25));
+
+// ---------- ACTIVITY LOG ----------
+app.get("/logs", auth("admin"), async (req, res) => {
+  res.json(await Activity.find().sort({ _id: -1 }).limit(50));
 });
 
-// ------------------- SERVER START -------------------
-app.listen(10000, () => console.log("🚀 Running @ PORT 10000"));
+
+// ---------- SERVER START ----------
+app.listen(10000, () => console.log("🚀 Blockchain System Running @ 10000"));
