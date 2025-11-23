@@ -1,77 +1,124 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Staff Panel</title>
+<title>Staff Portal - Evidence System</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-body { background:#0c0c0c; color:#00eaff; font-family: monospace; }
-.container { width:90%; margin:auto; }
-.block {
-  background:rgba(255,255,255,0.06);
-  padding:15px; margin:15px 0; border:1px solid #00eaff; border-radius:10px;
-}
-input,textarea{
-  width:100%; padding:10px; border-radius:6px; border:1px solid #00eaff; background:black; color:#fff;
+body { background:#0c0c0c; color:#00eaff; font-family: monospace; padding:15px; }
+h2 { color:#4dfcff; }
+input, textarea, select {
+ width:100%; padding:10px; background:black; color:#fff;
+ border:1px solid #00eaff; margin-top:5px; margin-bottom:10px;
+ border-radius:6px;
 }
 button{
-  padding:8px 14px; background:#00eaff; border:none; cursor:pointer; margin-top:10px; border-radius:5px; font-weight:bold;
+ background:#00eaff; border:none; padding:10px;
+ border-radius:6px; cursor:pointer; color:black;
+ font-weight:bold; margin:6px;
+}
+.block{
+ background:rgba(255,255,255,0.07);
+ padding:15px; border-radius:10px; margin:10px 0;
+ border:1px solid #00eaff;
 }
 </style>
 </head>
 <body>
 
-<div class="container">
-<h2>👨‍💼 Staff Portal</h2>
+<h2>👨‍💼 Staff Dashboard</h2>
+
+<button onclick="validate()">Validate Blockchain</button>
 <button onclick="logout()">Logout</button>
+<hr>
 
-<h3>Add Evidence</h3>
-<textarea id="text" placeholder="Add description"></textarea>
-<input type="file" id="file">
-<button onclick="add()">Submit</button>
+<h3>📌 Add New Evidence</h3>
+<textarea id="eText" placeholder="Write evidence description..."></textarea>
+<input type="file" id="eFile">
+<button onclick="submitEvidence()">Submit Evidence</button>
 
-<h3>Your Recorded Blockchain</h3>
-<div id="chain"></div>
+<hr>
 
-</div>
+<h3>📩 Request Block Restore</h3>
+<input type="number" id="restoreIndex" placeholder="Block number">
+<textarea id="restoreReason" placeholder="Why restore?"></textarea>
+<button onclick="sendRestore()">Send Request</button>
+
+<hr>
+
+<h3>📚 Blockchain (Limited View)</h3>
+<div id="chain">Loading...</div>
 
 <script>
-const API="https://block-chain-0xps.onrender.com";
-const token=localStorage.getItem("token");
-
+const API = "https://block-chain-0xps.onrender.com";
+const token = localStorage.getItem("token");
 if(!token) location.href="login.html";
 
-async function add(){
-  const fd=new FormData();
-  fd.append("text",document.getElementById("text").value);
-  let f=document.getElementById("file").files[0];
-  if(f) fd.append("image",f);
+// ---- LOAD CHAIN ----
+async function loadChain(){
+ let res = await fetch(API+"/chain/staff",{ headers:{Authorization:token} });
+ let data = await res.json();
+ let box = document.getElementById("chain");
+ box.innerHTML="";
 
-  await fetch(API+"/addBlock",{method:"POST",headers:{Authorization:token},body:fd});
-  load();
-}
-
-async function load(){
-  const res=await fetch(API+"/chain/staff",{headers:{Authorization:token}});
-  const data=await res.json();
-  const box=document.getElementById("chain");
-  box.innerHTML="";
-
-  data.forEach(b=>{
-    box.innerHTML += `
-    <div class="block">
-    <p><b>Block #${b.index}</b></p>
+ data.forEach(b=>{
+  box.innerHTML+=`
+   <div class="block">
+    <b>Block #${b.index}</b><br>
     <p>${b.text}</p>
-    <p>Status: ${b.status}</p>
-    </div>
-    `;
-  });
+    <p>Status: <b>${b.status}</b></p>
+   </div>
+  `;
+ });
 }
 
-function logout(){
-  localStorage.clear();
-  location.href="login.html";
+// ---- SUBMIT EVIDENCE ----
+async function submitEvidence(){
+ let fd = new FormData();
+ fd.append("text",document.getElementById("eText").value);
+ if(document.getElementById("eFile").files[0]) 
+   fd.append("image",document.getElementById("eFile").files[0]);
+
+ await fetch(API+"/addBlock",{ method:"POST", headers:{Authorization:token}, body:fd });
+
+ alert("Evidence Added Successfully");
+ document.getElementById("eText").value="";
+ document.getElementById("eFile").value="";
+ loadChain();
 }
 
-load();
+// ---- RESTORE REQUEST ----
+async function sendRestore(){
+ const index=document.getElementById("restoreIndex").value;
+ const reason=document.getElementById("restoreReason").value;
+
+ await fetch(API+"/restore/request",{
+   method:"POST",
+   headers:{ "Content-Type":"application/json", Authorization:token },
+   body:JSON.stringify({ blockIndex:index, reason })
+ });
+
+ alert("Restore Request Sent");
+ document.getElementById("restoreIndex").value="";
+ document.getElementById("restoreReason").value="";
+}
+
+// ---- VALIDATE ----
+async function validate(){
+ let res = await fetch(API+"/validate",{headers:{Authorization:token}});
+ let d = await res.json();
+ if(d.valid) alert("✔ Blockchain Valid — No tampering detected.");
+ else alert("❌ WARNING: "+d.issue);
+}
+
+// ---- LOGOUT ----
+async function logout(){
+ await fetch(API+"/activity/logout",{method:"POST",headers:{Authorization:token}});
+ localStorage.clear();
+ location.href="login.html";
+}
+
+loadChain();
 </script>
+
 </body>
 </html>
