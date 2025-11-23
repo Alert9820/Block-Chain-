@@ -12,37 +12,37 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// ---------------------- STATIC + LOGIN REDIRECT ----------------------
+// Serve login FIRST
 app.get("/", (req, res) => {
   res.sendFile(process.cwd() + "/public/login.html");
 });
+
 app.use(express.static("public"));
 
-// ---------------------- JWT SECRET ----------------------
 const JWT_SECRET = "SUPER_SECRET_KEY";
 
-// ---------------------- DATABASE ----------------------
-console.log("⏳ Connecting to MongoDB...");
+// ---------------------- DB CONNECT ----------------------
 await mongoose.connect(process.env.MONGO_URL);
 console.log("🔥 MongoDB Connected");
 
 // ---------------------- GRIDFS ----------------------
-let bucket = null;
+let bucket;
 mongoose.connection.once("open", () => {
   bucket = new GridFSBucket(mongoose.connection.db, { bucketName: "evidenceFiles" });
   console.log("📦 GridFS Ready");
 });
 
-// ---------------------- MULTER ----------------------
+// ---------------------- HELPERS ----------------------
 const upload = multer({ storage: multer.memoryStorage() });
+const hashGen = buffer => crypto.createHash("sha256").update(buffer).digest("hex");
 
-// ---------------------- MODELS ----------------------
+// ---------------------- SCHEMAS ----------------------
 const BlockSchema = {
   index: Number,
   timestamp: String,
   text: String,
-  imageHash: String,
   imageId: String,
+  imageHash: String,
   previousHash: String,
   hash: String,
   status: { type: String, default: "valid" }
@@ -50,19 +50,14 @@ const BlockSchema = {
 
 const PublicBlock = mongoose.model("publicBlocks", BlockSchema);
 const MasterBlock = mongoose.model("masterBlocks", BlockSchema);
-
 const Meta = mongoose.model("metaRecords", { key: String, value: String });
 
-// ⭐ USERS collection name = "UX"
-const User = mongoose.model(
-  "UX", 
-  new mongoose.Schema({
-    username: String,
-    password: String,
-    role: String
-  }),
-  "UX"
-);
+// Users stored in `UX` collection (requested by you)
+const User = mongoose.model("UX", new mongoose.Schema({
+  username: String,
+  password: String,
+  role: String
+}), "UX");
 
 const RestoreRequest = mongoose.model("restoreRequests", {
   user: String,
@@ -72,37 +67,32 @@ const RestoreRequest = mongoose.model("restoreRequests", {
   timestamp: String
 });
 
-// ---------------------- DEFAULT USERS (RUN AFTER DB READY) ----------------------
+// ---------------------- DEFAULT USERS ----------------------
 mongoose.connection.once("open", async () => {
-  const count = await User.countDocuments();
-  if (count === 0) {
+  if (await User.countDocuments() === 0) {
     await User.insertMany([
       { username: "admin", password: "admin123", role: "admin" },
       { username: "staff", password: "staff123", role: "staff" }
     ]);
 
-    console.log("👤 Default UX users created:");
-    console.log("➡ admin/admin123");
-    console.log("➡ staff/staff123");
-  } else {
-    console.log("✔ UX users already exist — skipping creation.");
+    console.log("👤 Default users created.");
   }
 });
 
-// ---------------------- AUTH MIDDLEWARE ----------------------
+// ---------------------- AUTH ----------------------
 function auth(role) {
   return (req, res, next) => {
     const token = req.headers.authorization;
-    if (!token) return res.json({ error: "Token missing" });
+    if (!token) return res.json({ error: "Login Required" });
 
     try {
       const decoded = jwt.verify(token, JWT_SECRET);
-      if (role && decoded.role !== role) return res.json({ error: "Permission denied" });
+      if (role && decoded.role !== role) return res.json({ error: "Access Denied" });
 
       req.user = decoded;
       next();
     } catch {
-      res.json({ error: "Invalid token" });
+      res.json({ error: "Invalid Token" });
     }
   };
 }
@@ -110,61 +100,77 @@ function auth(role) {
 // ---------------------- LOGIN ROUTE ----------------------
 app.post("/auth/login", async (req, res) => {
   const { username, password } = req.body;
+  const u = await User.findOne({ username });
 
-  const user = await User.findOne({ username });
+  if (!u) return res.json({ error: "User not found" });
+  if (u.password !== password) return res.json({ error: "Wrong password" });
 
-  if (!user) return res.json({ error: "User not found" });
-  if (user.password !== password) return res.json({ error: "Wrong password" });
-
-  const token = jwt.sign({ username: user.username, role: user.role }, JWT_SECRET);
-  res.json({ token, role: user.role });
+  const token = jwt.sign({ username: u.username, role: u.role }, JWT_SECRET);
+  res.json({ token, role: u.role });
 });
 
-// ---------------------- BLOCKCHAIN FUNCTIONS ----------------------
-const generateHash = text => crypto.createHash("sha256").update(text).digest("hex");
-
+// ---------------------- ADD BLOCK ----------------------
 async function getLatest() {
   return await PublicBlock.findOne().sort({ index: -1 });
 }
 
-app.post("/addBlock", upload.single("image"), async (req, res) => {
-  try {
-    let imageHash = "";
-    let imageId = "";
+app.post("/addBlock", auth(), upload.single("image"), async (req, res) => {
+  let imageHash = "";
+  let imageId = "";
 
-    if (req.file) {
-      if (!bucket) return res.json({ error: "Storage initializing, try again." });
-
-      imageHash = generateHash(req.file.buffer);
-      const stream = bucket.openUploadStream(Date.now() + "-" + req.file.originalname);
-      stream.end(req.file.buffer);
-      imageId = stream.id.toString();
-    }
-
-    const latest = await getLatest();
-    const index = latest ? latest.index + 1 : 1;
-    const timestamp = new Date().toISOString();
-    const previousHash = latest ? latest.hash : "0";
-    const hash = generateHash(req.body.text + imageHash + timestamp + previousHash);
-
-    const block = { index, timestamp, text: req.body.text, imageHash, imageId, previousHash, hash };
-
-    await PublicBlock.create(block);
-    await MasterBlock.create(block);
-    await Meta.findOneAndUpdate({ key: "lastHash" }, { value: hash }, { upsert: true });
-
-    res.json({ success: true, block });
-
-  } catch (err) {
-    res.json({ error: "Block creation failed" });
+  if (req.file) {
+    const stream = bucket.openUploadStream(Date.now() + "-" + req.file.originalname);
+    stream.end(req.file.buffer);
+    imageHash = hashGen(req.file.buffer);
+    imageId = stream.id.toString();
   }
+
+  const prev = await getLatest();
+  const index = prev ? prev.index + 1 : 1;
+  const timestamp = new Date().toISOString();
+  const previousHash = prev ? prev.hash : "0";
+  const hash = hashGen((req.body.text || "") + imageHash + timestamp + previousHash);
+
+  const block = { index, timestamp, text: req.body.text, imageId, imageHash, previousHash, hash };
+  await PublicBlock.create(block);
+  await MasterBlock.create(block);
+
+  await Meta.findOneAndUpdate({ key: "lastHash" }, { value: hash }, { upsert: true });
+
+  res.json({ success: true });
 });
 
-app.get("/chain", async (_, res) => {
+// ---------------------- VIEW CHAIN ----------------------
+app.get("/chain", auth(), async (_, res) => {
   res.json(await PublicBlock.find().sort({ index: 1 }));
 });
 
-// ---------------------- ADMIN ACTIONS ----------------------
+// ---------------------- SECURE IMAGE REVEAL ----------------------
+app.get("/admin/reveal/:id", auth("admin"), async (req, res) => {
+  try {
+    const block = await PublicBlock.findOne({ imageId: req.params.id });
+    let chunks = [];
+
+    const stream = bucket.openDownloadStream(new mongoose.Types.ObjectId(req.params.id));
+    
+    stream.on("data", chunk => chunks.push(chunk));
+    stream.on("end", () => {
+      const data = Buffer.concat(chunks);
+      const newHash = hashGen(data);
+
+      if (newHash !== block.imageHash)
+        return res.json({ error: "❌ Evidence Tampered (Hash Mismatch)" });
+
+      res.set({ "Content-Type": "image/jpeg" });
+      res.end(data);
+    });
+
+  } catch {
+    res.json({ error: "File Missing" });
+  }
+});
+
+// ---------------------- ADMIN CONTROLS ----------------------
 app.post("/freeze/:id", auth("admin"), async (req, res) => {
   await PublicBlock.updateOne({ index: req.params.id }, { status: "frozen" });
   res.json({ done: true });
@@ -175,25 +181,22 @@ app.post("/invalidate/:id", auth("admin"), async (req, res) => {
   res.json({ done: true });
 });
 
-// ---------------------- VALIDATE CHAIN ----------------------
-app.get("/validate", async (_, res) => {
+// ---------------------- VALIDATE BLOCKCHAIN ----------------------
+app.get("/validate", auth(), async (_, res) => {
   const chain = await PublicBlock.find().sort({ index: 1 });
-  const meta = await Meta.findOne({ key: "lastHash" });
-
-  for (let i = 0; i < chain.length; i++)
-    if (chain[i].index !== i + 1) return res.json({ valid: false, issue: `Block missing: ${i + 1}` });
+  const last = await Meta.findOne({ key: "lastHash" });
 
   for (let i = 1; i < chain.length; i++)
     if (chain[i].previousHash !== chain[i - 1].hash)
-      return res.json({ valid: false, issue: `Tampered at block ${i}` });
+      return res.json({ valid: false });
 
-  if (meta && chain.length && meta.value !== chain[chain.length - 1].hash)
-    return res.json({ valid: false, issue: "Last block deleted" });
+  if (last.value !== chain[chain.length - 1].hash)
+    return res.json({ valid: false });
 
   res.json({ valid: true });
 });
 
-// ---------------------- RESTORE REQUEST SYSTEM ----------------------
+// ---------------------- RESTORE SYSTEM ----------------------
 app.post("/restore/request", auth("staff"), async (req, res) => {
   await RestoreRequest.create({
     user: req.user.username,
@@ -202,7 +205,7 @@ app.post("/restore/request", auth("staff"), async (req, res) => {
     timestamp: new Date().toISOString()
   });
 
-  res.json({ message: "Request submitted" });
+  res.json({ requested: true });
 });
 
 app.get("/restore/requests", auth("admin"), async (_, res) => {
@@ -210,15 +213,11 @@ app.get("/restore/requests", auth("admin"), async (_, res) => {
 });
 
 app.post("/restore/approve/:id", auth("admin"), async (req, res) => {
-  const request = await RestoreRequest.findById(req.params.id);
-
   const full = await MasterBlock.find().sort({ index: 1 });
   await PublicBlock.deleteMany({});
   for (let b of full) await PublicBlock.create(JSON.parse(JSON.stringify(b)));
 
-  request.status = "approved";
-  await request.save();
-
+  await RestoreRequest.findByIdAndUpdate(req.params.id, { status: "approved" });
   res.json({ restored: true });
 });
 
@@ -227,14 +226,5 @@ app.post("/restore/reject/:id", auth("admin"), async (req, res) => {
   res.json({ rejected: true });
 });
 
-// ---------------------- FILE FETCH ----------------------
-app.get("/file/:id", (req, res) => {
-  try {
-    bucket.openDownloadStream(new mongoose.Types.ObjectId(req.params.id)).pipe(res);
-  } catch {
-    res.status(404).send("File missing");
-  }
-});
-
 // ---------------------- START SERVER ----------------------
-app.listen(10000, () => console.log("🚀 Server Live on 10000"));
+app.listen(10000, () => console.log("🚀 System Running @ PORT 10000"));
