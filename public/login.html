@@ -1,150 +1,196 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<title>Login | Evidence Blockchain System</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>🔐 Login - Evidence Blockchain System</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-<style>
-:root{
- --primary:#00f7ff;
- --glow:#00ffee50;
- --danger:#ff3b53;
- --success:#00ff72;
- --bg:#020202;
-}
+        body {
+            background: #0a0a0a;
+            color: #00eaff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
 
-body{
-  background:var(--bg);
-  color:var(--primary);
-  font-family: 'Segoe UI', sans-serif;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  height:100vh;
-  margin:0;
-}
+        .login-container {
+            background: rgba(0, 30, 40, 0.8);
+            border: 2px solid #00eaff;
+            border-radius: 15px;
+            padding: 40px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 0 30px rgba(0, 234, 255, 0.3);
+            backdrop-filter: blur(10px);
+        }
 
-.container{
-  width:300px;
-  background:rgba(0,0,0,.5);
-  border:1px solid var(--primary);
-  padding:25px;
-  border-radius:15px;
-  box-shadow:0 0 25px var(--glow);
-  text-align:center;
-}
+        .logo {
+            text-align: center;
+            font-size: 28px;
+            margin-bottom: 30px;
+            color: #00eaff;
+            text-shadow: 0 0 10px #00eaff;
+        }
 
-h1{
- font-size:22px;
- margin-bottom:15px;
- text-shadow:0 0 15px var(--primary);
-}
+        .form-group {
+            margin-bottom: 20px;
+        }
 
-input{
- width:100%;
- padding:10px;
- margin:10px 0;
- background:#000;
- border:1px solid var(--primary);
- border-radius:8px;
- color:var(--primary);
-}
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
 
-button{
- width:100%;
- padding:12px;
- background:var(--primary);
- color:black;
- border:none;
- border-radius:25px;
- font-weight:bold;
- cursor:pointer;
- margin-top:10px;
- box-shadow:0 0 10px var(--glow);
- transition:0.3s;
-}
+        input {
+            width: 100%;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid #00eaff;
+            border-radius: 8px;
+            color: #00eaff;
+            font-size: 16px;
+        }
 
-button:hover{ transform:scale(1.05); }
+        input:focus {
+            outline: none;
+            border-color: #00ff88;
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+        }
 
-#msg{
- margin-top:10px;
- font-size:14px;
- height:18px;
-}
-</style>
+        .login-btn {
+            width: 100%;
+            padding: 12px;
+            background: #00eaff;
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .login-btn:hover {
+            background: #00ff88;
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.5);
+        }
+
+        .demo-accounts {
+            margin-top: 25px;
+            padding: 15px;
+            background: rgba(0, 234, 255, 0.1);
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .demo-accounts h4 {
+            margin-bottom: 10px;
+            color: #00ff88;
+        }
+
+        .error {
+            color: #ff4444;
+            text-align: center;
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(255, 68, 68, 0.1);
+            border-radius: 5px;
+            display: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            color: #00ff88;
+            margin-top: 10px;
+        }
+    </style>
 </head>
-
 <body>
+    <div class="login-container">
+        <div class="logo">
+            ⚖ Evidence Blockchain System
+        </div>
+        
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" required placeholder="Enter username">
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" required placeholder="Enter password">
+            </div>
+            
+            <button type="submit" class="login-btn">Login</button>
+        </form>
+        
+        <div class="error" id="errorMessage"></div>
+        <div class="loading" id="loading">Logging in...</div>
+        
+        <div class="demo-accounts">
+            <h4>Demo Accounts:</h4>
+            <p><strong>Admin:</strong> admin / admin123</p>
+            <p><strong>Staff:</strong> staff / staff123</p>
+        </div>
+    </div>
 
-<div class="container">
- <h1>🔐 Login</h1>
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('errorMessage');
+            const loadingDiv = document.getElementById('loading');
+            
+            // Reset states
+            errorDiv.style.display = 'none';
+            loadingDiv.style.display = 'block';
+            
+            try {
+                const response = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    localStorage.setItem('token', data.token);
+                    
+                    // Redirect based on role
+                    if (data.role === 'admin') {
+                        window.location.href = '/admin.html';
+                    } else {
+                        window.location.href = '/staff.html';
+                    }
+                } else {
+                    throw new Error(data.error || 'Login failed');
+                }
+                
+            } catch (error) {
+                errorDiv.textContent = error.message;
+                errorDiv.style.display = 'block';
+            } finally {
+                loadingDiv.style.display = 'none';
+            }
+        });
 
- <input type="text" id="username" placeholder="Enter Username">
- <input type="password" id="password" placeholder="Enter Password">
-
- <button id="loginBtn" onclick="login()">Login</button>
-
- <p id="msg"></p>
-</div>
-
-<script>
-const API="https://block-chain-0xps.onrender.com";
-
-// 🔥 Auto redirect if already logged in
-window.onload = () => {
-  const token = localStorage.getItem("token");
-  const role = localStorage.getItem("role");
-
-  if(token && role){
-    if(role==="admin") window.location="admin.html";
-    else window.location="staff.html";
-  }
-};
-
-// LOGIN FUNCTION
-async function login(){
-  const user=document.getElementById("username").value.trim();
-  const pass=document.getElementById("password").value.trim();
-  const msg=document.getElementById("msg");
-  const btn=document.getElementById("loginBtn");
-
-  if(!user || !pass){
-    msg.innerHTML="⚠ Please enter credentials";
-    return;
-  }
-
-  btn.disabled=true;
-  btn.innerText="Processing...";
-
-  const res = await fetch(API+"/auth/login",{
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body:JSON.stringify({username:user,password:pass})
-  });
-
-  const data=await res.json();
-
-  if(data.error){
-    msg.style.color="var(--danger)";
-    msg.innerHTML="❌ "+data.error;
-    btn.disabled=false;
-    btn.innerText="Login";
-    return;
-  }
-
-  // Success
-  msg.style.color="var(--success)";
-  msg.innerHTML="✔ Login Successful";
-
-  localStorage.setItem("token",data.token);
-  localStorage.setItem("role",data.role);
-
-  setTimeout(()=>{
-    if(data.role==="admin") window.location="admin.html";
-    else window.location="staff.html";
-  },700);
-}
-</script>
+        // Auto-focus username field
+        document.getElementById('username').focus();
+    </script>
 </body>
 </html>
