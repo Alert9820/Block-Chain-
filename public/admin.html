@@ -1,244 +1,236 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Admin Control Panel</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>⚖ Admin Panel - Evidence Blockchain</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
 body {
-    background: #0e0e0e;
-    color: white;
-    font-family: Arial;
+    background: #0d0d0d;
+    color: #00eaff;
+    font-family: Arial, sans-serif;
     margin: 0;
+    padding: 0;
 }
 
-h2 {
+header {
+    background: #001d26;
+    padding: 12px;
     text-align: center;
-    margin-top: 15px;
-    color: #00f0ff;
-}
-
-.container {
-    width: 92%;
-    margin: auto;
-}
-
-.card {
-    background: #1c1c1c;
-    padding: 15px;
-    border-radius: 10px;
-    border-left: 4px solid #00f0ff;
-    margin-top: 18px;
+    font-size: 22px;
+    font-weight: bold;
+    border-bottom: 2px solid #00eaff;
 }
 
 button {
-    background: #00f0ff;
-    padding: 8px 14px;
+    background: #00eaff;
     border: none;
+    padding: 8px 14px;
+    margin: 5px;
     border-radius: 6px;
     cursor: pointer;
-    margin-top: 8px;
     font-weight: bold;
 }
 button:hover {
-    background: cyan;
+    background: #00a6b3;
+}
+
+#chainBox, #requestsBox, #logBox {
+    padding: 15px;
 }
 
 .block {
-    background: #121212;
+    border: 1px solid #00eaff;
     padding: 12px;
-    margin: 10px 0;
-    border-radius: 8px;
-    border-left: 3px solid #00f0ff;
+    margin-bottom: 10px;
+    background: rgba(0, 255, 255, 0.05);
+    border-radius: 6px;
 }
 
 .hash {
-    color: #00ffc8;
     cursor: pointer;
-    display: inline-block;
+    color: #ffdd57;
+}
+.hash:hover {
     text-decoration: underline;
 }
 
-.status {
-    padding: 5px 8px;
-    border-radius: 5px;
-    background: #444;
-    display: inline-block;
-    font-size: 12px;
-}
-
-#modal {
-    position: fixed;
-    top:0; left:0;
-    width:100%; height:100%;
-    display:none;
-    background: rgba(0,0,0,0.85);
-    justify-content:center;
-    align-items:center;
-}
-#modal img {
-    max-width:80%;
-    border:4px solid white;
-    border-radius:10px;
+.hidden {
+    display: none;
 }
 </style>
+
 </head>
 
-<body>
+<body onload="init()">
 
-<h2>⚖ Admin Evidence Blockchain System</h2>
+<header>⚖ ADMIN EVIDENCE BLOCKCHAIN SYSTEM</header>
 
-<div class="container">
-
-    <button onclick="loadBlocks()">🔄 Refresh</button>
-    <button onclick="validate()">✔ Validate Chain</button>
+<div style="padding:12px; text-align:center;">
+    <button onclick="loadChain()">📦 Blockchain</button>
+    <button onclick="validateChain()">✔ Validate</button>
     <button onclick="loadRequests()">📩 Restore Requests</button>
     <button onclick="loadLogs()">📜 Logs</button>
-    <button onclick="logout()" style="background:#ff4a4a; color:white;">Logout</button>
-
-    <div id="output"></div>
-
+    <button onclick="logout()" style="background:#ff4444;color:white;">🚪 Logout</button>
 </div>
 
-<!-- IMAGE VIEW MODAL -->
-<div id="modal" onclick="document.getElementById('modal').style.display='none'">
-    <img id="modalImg" src="">
-</div>
+<hr style="border-color:#00eaff;">
 
+<div id="mainContent">
+    <h3 style="padding-left:12px;">📦 Blockchain Records</h3>
+    <div id="chainBox">Loading...</div>
+</div>
 
 <script>
-const API = "https://block-chain-0xps.onrender.com";
-const token = localStorage.getItem("token");
+const API = location.origin;
+let token = localStorage.getItem("token");
+if(!token) location.href = "/login.html";
 
-if(!token) window.location.href = "login.html";
+// 🔹 Show Chain
+async function loadChain() {
+    showMessage("Loading blockchain...");
 
-async function loadBlocks(){
-    let res = await fetch(`${API}/chain/admin`,{
-        headers:{ "Authorization":token }
+    let res = await fetch(API + "/chain/admin", {
+        headers: { "Authorization": token }
     });
 
     let data = await res.json();
-    let out = document.getElementById("output");
-    out.innerHTML = "<h3>📦 Blockchain Records</h3>";
+    const box = document.getElementById("chainBox");
+    box.innerHTML = "";
 
-    data.forEach(b=>{
-        out.innerHTML += `
+    if (!data.length) return box.innerHTML = "<p>No Records Found.</p>";
+
+    data.forEach(b => {
+        box.innerHTML += `
         <div class="block">
-            <b>Block #${b.index}</b><br>
-            <small>${new Date(b.timestamp).toLocaleString()}</small><br><br>
-            
-            <p><b>Description:</b> ${b.text}</p>
-            <p><b>Hash:</b> <span class="hash" onclick="viewImage('${b.imageId}', '${b.imageHash}')">${b.imageHash || "No Image"}</span></p>
-            <p><b>Status:</b> <span class="status">${b.status}</span></p>
+            <b>Block #${b.index}</b> | Status: ${b.status.toUpperCase()}<br>
+            <b>Text:</b> ${b.text}<br>
+            <b>Image Hash:</b> <span class="hash" onclick="viewImage('${b.imageId}')">${b.imageHash || "No Image"}</span><br>
+            <b>Block Hash:</b> ${b.hash}<br>
+            <b>Prev Hash:</b> ${b.previousHash}<br><br>
 
             <button onclick="freeze(${b.index})">Freeze</button>
-            <button onclick="invalidate(${b.index})">Invalidate</button>
-        </div>
-        `;
+            <button onclick="invalidate(${b.index})" style="background:#ff5757;">Invalidate</button>
+        </div>`;
     });
 }
 
-async function viewImage(id, hash){
-    if(!id) return alert("No image attached.");
-
-    document.getElementById("modal").style.display="flex";
-    document.getElementById("modalImg").src = `${API}/reveal/${id}?auth=${token}`;
-}
-
-async function freeze(i){
-    await fetch(`${API}/freeze/${i}`,{
-        method:"POST",
-        headers:{ "Authorization":token }
+// 🔹 Freeze
+async function freeze(i) {
+    await fetch(API + `/freeze/${i}`, {
+        method: "POST",
+        headers: { "Authorization": token }
     });
-    alert("🧊 Block Frozen");
-    loadBlocks();
+    loadChain();
 }
 
-async function invalidate(i){
-    await fetch(`${API}/invalidate/${i}`,{
-        method:"POST",
-        headers:{ "Authorization":token }
+// 🔹 Invalidate
+async function invalidate(i) {
+    await fetch(API + `/invalidate/${i}`, {
+        method: "POST",
+        headers: { "Authorization": token }
     });
-    alert("⚠ Block Marked Invalid");
-    loadBlocks();
+    loadChain();
 }
 
-async function validate(){
-    let res = await fetch(`${API}/validate`,{ headers:{ "Authorization":token }});
+// 🔹 View Image
+function viewImage(id) {
+    if(!id || id === "null") return alert("No Image");
+
+    let url = API + `/reveal/${id}`;
+    window.open(url, "_blank");
+}
+
+// 🔹 Validate
+async function validateChain() {
+    let res = await fetch(API + "/validate", { headers:{Authorization:token}});
     let result = await res.json();
-    alert(result.msg);
+
+    if(result.valid) alert("✓ Blockchain Valid & Untampered");
+    else alert("❌ Blockchain Issue: " + result.issue);
 }
 
-async function loadRequests(){
-    let res = await fetch(`${API}/restore/requests`,{
-        headers:{ "Authorization":token }
+// 🔹 Load Requests
+async function loadRequests() {
+    showMessage("Loading restore requests...");
+
+    let res = await fetch(API + "/restore/requests", {
+        headers: { Authorization: token }
     });
 
     let data = await res.json();
-    let out = document.getElementById("output");
-    out.innerHTML = "<h3>📩 Restore Requests</h3>";
+    const box = document.getElementById("chainBox");
+    box.innerHTML = "";
 
-    if(data.length === 0){
-        out.innerHTML += "<p>No requests yet.</p>";
-        return;
-    }
+    if (!data.length) return box.innerHTML = "<p>No requests.</p>";
 
-    data.forEach(r=>{
-        out.innerHTML += `
+    data.forEach(r => {
+        box.innerHTML += `
         <div class="block">
-            <p><b>User:</b> ${r.user}</p>
-            <p><b>Block:</b> #${r.blockIndex}</p>
-            <p><b>Reason:</b> ${r.reason}</p>
-            <p><b>Status:</b> ${r.status}</p>
-            
-            <button onclick="approve('${r._id}')">✔ Approve</button>
-            <button onclick="reject('${r._id}')" style="background:#ff6565">Reject</button>
+            <b>${r.user}</b> requested restore of Block #${r.blockIndex}<br>
+            Reason: ${r.reason}<br>
+            Status: <b>${r.status}</b><br><br>
+
+            <button onclick="approve('${r._id}')">Approve</button>
+            <button onclick="reject('${r._id}')" style="background:#ff5757;">Reject</button>
         </div>`;
     });
 }
 
-async function approve(id){
-    await fetch(`${API}/restore/approve/${id}`,{ method:"POST", headers:{ "Authorization":token }});
-    alert("✔ Restore Approved - Chain Restored");
-    loadRequests();
-    loadBlocks();
-}
-
-async function reject(id){
-    await fetch(`${API}/restore/reject/${id}`,{ method:"POST", headers:{ "Authorization":token }});
-    alert("❌ Request Rejected");
+// 🔹 Approve
+async function approve(id) {
+    await fetch(API + `/restore/approve/${id}`, {
+        method: "POST",
+        headers: { Authorization: token }
+    });
+    alert("Restored!");
     loadRequests();
 }
 
-async function loadLogs(){
-    let res = await fetch(`${API}/logs`,{
-        headers:{ "Authorization":token }
+// 🔹 Reject
+async function reject(id) {
+    await fetch(API + `/restore/reject/${id}`, {
+        method: "POST",
+        headers: { Authorization: token }
+    });
+    loadRequests();
+}
+
+// 🔹 Logs
+async function loadLogs() {
+    showMessage("Loading logs...");
+
+    let res = await fetch(API + "/logs", {
+        headers: { Authorization: token }
     });
 
-    let logs = await res.json();
-    let out = document.getElementById("output");
-    out.innerHTML = "<h3>📜 User Activity Logs</h3>";
+    let data = await res.json();
+    const box = document.getElementById("chainBox");
+    box.innerHTML = "";
 
-    logs.forEach(l=>{
-        out.innerHTML += `
-        <div class="block">
-            <p><b>User:</b> ${l.user}</p>
-            <p><b>Action:</b> ${l.action}</p>
-            <p><b>Time:</b> ${new Date(l.time).toLocaleString()}</p>
-        </div>`;
+    data.forEach(log => {
+        box.innerHTML += `<div class="block">🧍 ${log.username} – ${log.action} at ${log.timestamp}</div>`;
     });
 }
 
-async function logout(){
-    await fetch(`${API}/activity/logout`,{
-        method:"POST",
-        headers:{ "Authorization":token }
+// Logout
+async function logout() {
+    await fetch(API + "/auth/logout", {
+        method: "POST",
+        headers: { Authorization: token }
     });
+
     localStorage.removeItem("token");
-    window.location.href = "login.html";
+    location.href = "/login.html";
 }
 
-loadBlocks();
+// message UI
+function showMessage(msg){
+    document.getElementById("chainBox").innerHTML = `<p style="color:yellow;">${msg}</p>`;
+}
+
+function init(){ loadChain(); }
+
 </script>
 
 </body>
