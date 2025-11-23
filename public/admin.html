@@ -597,37 +597,13 @@
                 const activityBox = document.getElementById('recentActivity');
                 if (logs.length > 0) {
                     activityBox.innerHTML = logs.map(log => `
-                        <div class="block">
-                            <div class="block-content">
-                                <strong>${log.username}</strong> - ${log.action}
-                                <div style="font-size: 0.8rem; opacity: 0.7; margin-top: 0.3rem;">
-                                    ${new Date(log.timestamp).toLocaleString()}
-                                </div>
-                            </div>
-                        </div>
-                    `).join('');
+                        ;
                 } else {
-                    activityBox.innerHTML = '<p>No recent activity</p>';
-                }
-
-            } catch (error) {
-                console.error('Dashboard error:', error);
-                showError('Failed to load dashboard data');
-            }
         }
 
         // Load Blockchain
         async function loadChain() {
-            const box = document.getElementById('chainBox');
-            box.innerHTML = `
-                <div class="loading">
-                    <div class="spinner"></div>
-                    Loading blockchain...
-                </div>
-            `;
-
-            try {
-                const res = await fetch(API + "/chain/admin", {
+             await fetch(API + "/chain/admin", {
                     headers: { "Authorization": token }
                 });
 
@@ -635,47 +611,7 @@
 
                 const data = await res.json();
                 
-                if (!data || data.length === 0) {
-                    box.innerHTML = '<p>No evidence blocks found in the blockchain.</p>';
-                    return;
-                }
-
-                box.innerHTML = data.map(block => `
-                    <div class="block">
-                        <div class="block-header">
-                            <div class="block-title">Block #${block.index}</div>
-                            <div class="status-badge status-${block.status}">${block.status.toUpperCase()}</div>
-                        </div>
-                        
-                        <div class="block-content">
-                            <div><strong>Evidence:</strong> ${block.text}</div>
-                            <div><strong>Timestamp:</strong> ${new Date(block.timestamp).toLocaleString()}</div>
-                            
-                            <div style="margin-top: 0.8rem;">
-                                <strong>Image Hash:</strong>
-                                <div class="hash">
-                                    ${block.imageHash || 'No Image'}
-                                    ${block.imageId ? `<span class="clickable" onclick="viewImage('${block.imageId}')"> 👁️ View Image</span>` : ''}
-                                </div>
-                            </div>
-                            
-                            <div><strong>Previous Hash:</strong> <div class="hash">${block.previousHash}</div></div>
-                            <div><strong>Block Hash:</strong> <div class="hash">${block.hash}</div></div>
-                            
-                            <div style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                                <button class="btn btn-warning" onclick="freezeBlock(${block.index})">❄️ Freeze</button>
-                                <button class="btn btn-danger" onclick="invalidateBlock(${block.index})">🚫 Invalidate</button>
-                            </div>
-                        </div>
-                    </div>
-                `).join('');
-
-            } catch (error) {
-                console.error('Load chain error:', error);
-                box.innerHTML = '<p style="color: var(--danger);">Error loading blockchain</p>';
-            }
-        }
-
+                if (
         // Freeze Block
         async function freezeBlock(index) {
             if (!confirm(`Are you sure you want to freeze Block #${index}?`)) return;
@@ -740,53 +676,11 @@
         // Load Restore Requests
         async function loadRequests() {
             const box = document.getElementById('requestsBox');
-            box.innerHTML = `
-                <div class="loading">
-                    <div class="spinner"></div>
-                    Loading restore requests...
-                </div>
-            `;
-
-            try {
-                const res = await fetch(API + "/restore/requests", {
-                    headers: { "Authorization": token }
-                });
+            
 
                 const data = await res.json();
                 
-                if (!data || data.length === 0) {
-                    box.innerHTML = '<p>No pending restore requests.</p>';
-                    return;
-                }
-
-                box.innerHTML = data.map(request => `
-                    <div class="block">
-                        <div class="block-header">
-                            <div class="block-title">Request from ${request.user}</div>
-                            <div class="status-badge status-${request.status}">${request.status.toUpperCase()}</div>
-                        </div>
-                        
-                        <div class="block-content">
-                            <div><strong>Block Index:</strong> #${request.blockIndex}</div>
-                            <div><strong>Reason:</strong> ${request.reason}</div>
-                            <div><strong>Submitted:</strong> ${new Date(request.timestamp).toLocaleString()}</div>
-                            
-                            ${request.status === 'pending' ? `
-                                <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
-                                    <button class="btn btn-success" onclick="approveRequest('${request._id}')">✅ Approve</button>
-                                    <button class="btn btn-danger" onclick="rejectRequest('${request._id}')">❌ Reject</button>
-                                </div>
-                            ` : ''}
-                        </div>
-                    </div>
-                `).join('');
-
-            } catch (error) {
-                console.error('Load requests error:', error);
-                box.innerHTML = '<p style="color: var(--danger);">Error loading requests</p>';
-            }
-        }
-
+                if (!data || 
         // Approve Restore Request
         async function approveRequest(requestId) {
             if (!confirm('Approve this restore request? This will restore the entire blockchain from master backup.')) return;
@@ -839,53 +733,7 @@
         // Load Logs
         async function loadLogs() {
             const box = document.getElementById('logBox');
-            box.innerHTML = `
-                <div class="loading">
-                    <div class="spinner"></div>
-                    Loading system logs...
-                </div>
-            `;
-
-            try {
-                const res = await fetch(API + "/logs", {
-                    headers: { "Authorization": token }
-                });
-
-                const data = await res.json();
-                
-                if (!data || data.length === 0) {
-                    box.innerHTML = '<p>No system logs available.</p>';
-                    return;
-                }
-
-                box.innerHTML = `
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>User</th>
-                                <th>Action</th>
-                                <th>Timestamp</th>
-                                <th>IP Address</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${data.map(log => `
-                                <tr>
-                                    <td>${log.username}</td>
-                                    <td>${log.action}</td>
-                                    <td>${new Date(log.timestamp).toLocaleString()}</td>
-                                    <td>${log.ip || 'N/A'}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                `;
-
-            } catch (error) {
-                console.error('Load logs error:', error);
-                box.innerHTML = '<p style="color: var(--danger);">Error loading logs</p>';
-            }
-        }
+            
 
         // Run Validation
         async function runValidation() {
@@ -904,43 +752,7 @@
                 loading.style.display = 'none';
 
                 if (result.valid) {
-                    output.innerHTML = `
-                        <div style="color: var(--secondary); text-align: center; padding: 2rem;">
-                            <div style="font-size: 3rem; margin-bottom: 1rem;">✅</div>
-                            <h3 style="color: var(--secondary); margin-bottom: 1rem;">Blockchain Valid</h3>
-                            <p>All ${result.blockCount} blocks are securely linked and untampered.</p>
-                            <p style="margin-top: 1rem; font-size: 0.9rem; opacity: 0.8;">
-                                Last validated: ${new Date().toLocaleString()}
-                            </p>
-                        </div>
-                    `;
-                } else {
-                    output.innerHTML = `
-                        <div style="color: var(--danger); text-align: center; padding: 2rem;">
-                            <div style="font-size: 3rem; margin-bottom: 1rem;">❌</div>
-                            <h3 style="color: var(--danger); margin-bottom: 1rem;">Validation Failed</h3>
-                            <p><strong>Issue:</strong> ${result.issue}</p>
-                            <p><strong>Tampered at block:</strong> ${result.tamperedAt}</p>
-                            <div style="margin-top: 1.5rem;">
-                                <button class="btn btn-warning" onclick="loadRequests()">Check Restore Requests</button>
-                            </div>
-                        </div>
-                    `;
-                }
-
-            } catch (error) {
-                loading.style.display = 'none';
-                output.innerHTML = `
-                    <div style="color: var(--danger); text-align: center;">
-                        <p>Error running validation: ${error.message}</p>
-                    </div>
-                `;
-            }
-        }
-
-        // Validate Chain (from dashboard)
-        async function validateChain() {
-            showSection('validation');
+                    
             runValidation();
         }
 
