@@ -3,182 +3,242 @@
 <head>
 <title>Admin Control Panel</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+
 <style>
-body { background:#0c0c0c; color:#00eaff; font-family: monospace; padding:10px; }
-h2 { color:#4dfcff; }
-button{
- background:#00eaff; border:none; color:#000; padding:10px;
- border-radius:5px; cursor:pointer; font-weight:bold; margin:6px;
-}
-.container{ width:95%; margin:auto; }
-
-.block{
- border:1px solid #00eaff;
- padding:15px; margin:15px 0; border-radius:10px;
- background:rgba(255,255,255,0.06);
+body {
+    background: #0e0e0e;
+    color: white;
+    font-family: Arial;
+    margin: 0;
 }
 
-.hash-link{
- color:#5bff84; cursor:pointer; text-decoration:underline;
+h2 {
+    text-align: center;
+    margin-top: 15px;
+    color: #00f0ff;
 }
 
-#popup{
- position:fixed; top:0; left:0; width:100%; height:100%;
- background:rgba(0,0,0,0.9);
- display:none; justify-content:center; align-items:center;
-}
-#popup img{
- max-width:90%;
- border:2px solid #00eaff; border-radius:10px;
+.container {
+    width: 92%;
+    margin: auto;
 }
 
-.log-box{
- background:rgba(255,255,255,0.08);
- border-radius:10px; padding:10px;
- max-height:200px; overflow-y:auto;
- border:1px solid #00eaff;
+.card {
+    background: #1c1c1c;
+    padding: 15px;
+    border-radius: 10px;
+    border-left: 4px solid #00f0ff;
+    margin-top: 18px;
+}
+
+button {
+    background: #00f0ff;
+    padding: 8px 14px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-top: 8px;
+    font-weight: bold;
+}
+button:hover {
+    background: cyan;
+}
+
+.block {
+    background: #121212;
+    padding: 12px;
+    margin: 10px 0;
+    border-radius: 8px;
+    border-left: 3px solid #00f0ff;
+}
+
+.hash {
+    color: #00ffc8;
+    cursor: pointer;
+    display: inline-block;
+    text-decoration: underline;
+}
+
+.status {
+    padding: 5px 8px;
+    border-radius: 5px;
+    background: #444;
+    display: inline-block;
+    font-size: 12px;
+}
+
+#modal {
+    position: fixed;
+    top:0; left:0;
+    width:100%; height:100%;
+    display:none;
+    background: rgba(0,0,0,0.85);
+    justify-content:center;
+    align-items:center;
+}
+#modal img {
+    max-width:80%;
+    border:4px solid white;
+    border-radius:10px;
 }
 </style>
 </head>
+
 <body>
 
+<h2>⚖ Admin Evidence Blockchain System</h2>
+
 <div class="container">
-<h2>🛡 ADMIN PANEL</h2>
 
-<button onclick="validate()">Validate Blockchain</button>
-<button onclick="logout()">Logout</button>
+    <button onclick="loadBlocks()">🔄 Refresh</button>
+    <button onclick="validate()">✔ Validate Chain</button>
+    <button onclick="loadRequests()">📩 Restore Requests</button>
+    <button onclick="loadLogs()">📜 Logs</button>
+    <button onclick="logout()" style="background:#ff4a4a; color:white;">Logout</button>
 
-<hr>
-
-<h3>📌 Blockchain Records</h3>
-<div id="chain">Loading...</div>
-
-<hr>
-
-<h3>📦 Restore Requests</h3>
-<div id="requests">Loading...</div>
-
-<hr>
-
-<h3>📜 Activity Logs</h3>
-<div id="logs" class="log-box">Loading...</div>
+    <div id="output"></div>
 
 </div>
 
-<div id="popup" onclick="this.style.display='none'">
- <img id="imgPreview">
+<!-- IMAGE VIEW MODAL -->
+<div id="modal" onclick="document.getElementById('modal').style.display='none'">
+    <img id="modalImg" src="">
 </div>
+
 
 <script>
 const API = "https://block-chain-0xps.onrender.com";
 const token = localStorage.getItem("token");
-if(!token) location.href="login.html";
 
-// ---- LOAD BLOCKCHAIN ----
-async function loadChain(){
- let res = await fetch(API+"/chain/admin",{ headers:{Authorization:token} });
- let data = await res.json();
- let box = document.getElementById("chain");
- box.innerHTML="";
+if(!token) window.location.href = "login.html";
 
- data.forEach(b=>{
- box.innerHTML+=`
- <div class='block'>
- <b>Block #${b.index}</b><br>
- <small>${b.timestamp}</small><br><br>
- <p><b>Description:</b> ${b.text}</p>
- <p><b>Image Hash:</b> <span class='hash-link' onclick="view('${b.imageId}')">${b.imageHash || "No Image"}</span></p>
- <p><b>Prev Hash:</b> ${b.previousHash}</p>
- <p><b>Curr Hash:</b> ${b.hash}</p>
- 💠 Status: <b>${b.status}</b><br><br>
- <button onclick="freeze(${b.index})">Freeze</button>
- <button onclick="invalidate(${b.index})">Invalidate</button>
- </div>`;
- });
+async function loadBlocks(){
+    let res = await fetch(`${API}/chain/admin`,{
+        headers:{ "Authorization":token }
+    });
+
+    let data = await res.json();
+    let out = document.getElementById("output");
+    out.innerHTML = "<h3>📦 Blockchain Records</h3>";
+
+    data.forEach(b=>{
+        out.innerHTML += `
+        <div class="block">
+            <b>Block #${b.index}</b><br>
+            <small>${new Date(b.timestamp).toLocaleString()}</small><br><br>
+            
+            <p><b>Description:</b> ${b.text}</p>
+            <p><b>Hash:</b> <span class="hash" onclick="viewImage('${b.imageId}', '${b.imageHash}')">${b.imageHash || "No Image"}</span></p>
+            <p><b>Status:</b> <span class="status">${b.status}</span></p>
+
+            <button onclick="freeze(${b.index})">Freeze</button>
+            <button onclick="invalidate(${b.index})">Invalidate</button>
+        </div>
+        `;
+    });
 }
 
-// ---- VIEW IMAGE ----
-function view(id){
- if(!id) return alert("No Image");
- document.getElementById("imgPreview").src = `${API}/reveal/${id}?auth=${token}`;
- document.getElementById("popup").style.display="flex";
+async function viewImage(id, hash){
+    if(!id) return alert("No image attached.");
+
+    document.getElementById("modal").style.display="flex";
+    document.getElementById("modalImg").src = `${API}/reveal/${id}?auth=${token}`;
 }
 
-// ---- FREEZE ----
 async function freeze(i){
- await fetch(API+"/freeze/"+i,{method:"POST",headers:{Authorization:token}});
- loadChain();
+    await fetch(`${API}/freeze/${i}`,{
+        method:"POST",
+        headers:{ "Authorization":token }
+    });
+    alert("🧊 Block Frozen");
+    loadBlocks();
 }
 
-// ---- INVALIDATE ----
 async function invalidate(i){
- await fetch(API+"/invalidate/"+i,{method:"POST",headers:{Authorization:token}});
- loadChain();
+    await fetch(`${API}/invalidate/${i}`,{
+        method:"POST",
+        headers:{ "Authorization":token }
+    });
+    alert("⚠ Block Marked Invalid");
+    loadBlocks();
 }
 
-// ---- VALIDATE ----
 async function validate(){
- let res = await fetch(API+"/validate",{headers:{Authorization:token}});
- let data = await res.json();
- if(data.valid) alert("✔ Blockchain Valid - No Tampering");
- else alert("❌ ERROR: "+data.issue);
+    let res = await fetch(`${API}/validate`,{ headers:{ "Authorization":token }});
+    let result = await res.json();
+    alert(result.msg);
 }
 
-// ---- RESTORE REQUESTS ----
 async function loadRequests(){
- let res = await fetch(API+"/restore/requests",{headers:{Authorization:token}});
- let r = await res.json();
- let box = document.getElementById("requests");
- box.innerHTML="";
- r.forEach(v=>{
- box.innerHTML+=`
- <div class="block">
- <b>User:</b> ${v.user}<br>
- <b>Block:</b> ${v.blockIndex}<br>
- <b>Reason:</b> ${v.reason}<br>
- <b>Status:</b> ${v.status}<br><br>
- ${v.status=="pending"?`
- <button onclick="approve('${v._id}')">Approve</button>
- <button onclick="reject('${v._id}')">Reject</button>
- `:""}
- </div>
- `;
- });
+    let res = await fetch(`${API}/restore/requests`,{
+        headers:{ "Authorization":token }
+    });
+
+    let data = await res.json();
+    let out = document.getElementById("output");
+    out.innerHTML = "<h3>📩 Restore Requests</h3>";
+
+    if(data.length === 0){
+        out.innerHTML += "<p>No requests yet.</p>";
+        return;
+    }
+
+    data.forEach(r=>{
+        out.innerHTML += `
+        <div class="block">
+            <p><b>User:</b> ${r.user}</p>
+            <p><b>Block:</b> #${r.blockIndex}</p>
+            <p><b>Reason:</b> ${r.reason}</p>
+            <p><b>Status:</b> ${r.status}</p>
+            
+            <button onclick="approve('${r._id}')">✔ Approve</button>
+            <button onclick="reject('${r._id}')" style="background:#ff6565">Reject</button>
+        </div>`;
+    });
 }
 
 async function approve(id){
- await fetch(API+"/restore/approve/"+id,{method:"POST",headers:{Authorization:token}});
- loadChain(); loadRequests();
+    await fetch(`${API}/restore/approve/${id}`,{ method:"POST", headers:{ "Authorization":token }});
+    alert("✔ Restore Approved - Chain Restored");
+    loadRequests();
+    loadBlocks();
 }
+
 async function reject(id){
- await fetch(API+"/restore/reject/"+id,{method:"POST",headers:{Authorization:token}});
- loadRequests();
+    await fetch(`${API}/restore/reject/${id}`,{ method:"POST", headers:{ "Authorization":token }});
+    alert("❌ Request Rejected");
+    loadRequests();
 }
 
-// ---- ACTIVITY LOGS ----
 async function loadLogs(){
- let res = await fetch(API+"/logs",{headers:{Authorization:token}});
- let log = await res.json();
- let box=document.getElementById("logs");
- box.innerHTML="";
- log.forEach(l=>{
- box.innerHTML+= `<div>📍 ${l.message} — <small>${l.time}</small></div>`;
- });
+    let res = await fetch(`${API}/logs`,{
+        headers:{ "Authorization":token }
+    });
+
+    let logs = await res.json();
+    let out = document.getElementById("output");
+    out.innerHTML = "<h3>📜 User Activity Logs</h3>";
+
+    logs.forEach(l=>{
+        out.innerHTML += `
+        <div class="block">
+            <p><b>User:</b> ${l.user}</p>
+            <p><b>Action:</b> ${l.action}</p>
+            <p><b>Time:</b> ${new Date(l.time).toLocaleString()}</p>
+        </div>`;
+    });
 }
 
-// ---- LOGOUT ----
 async function logout(){
- await fetch(API+"/activity/logout",{method:"POST",headers:{Authorization:token}});
- localStorage.clear();
- location.href="login.html";
+    await fetch(`${API}/activity/logout`,{
+        method:"POST",
+        headers:{ "Authorization":token }
+    });
+    localStorage.removeItem("token");
+    window.location.href = "login.html";
 }
 
-// Auto refresh
-setInterval(()=>{ loadChain(); loadRequests(); loadLogs(); },3000);
-
-loadChain();
-loadRequests();
-loadLogs();
+loadBlocks();
 </script>
 
 </body>
