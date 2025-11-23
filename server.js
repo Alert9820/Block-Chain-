@@ -5,7 +5,6 @@ import dotenv from "dotenv";
 import multer from "multer";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
-import { GridFSBucket } from "mongodb";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -17,7 +16,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
 app.use(express.static("public"));
 
 const JWT_SECRET = process.env.JWT_SECRET || "SUPER_SECRET_KEY_123";
@@ -27,27 +26,19 @@ const connectDB = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URL);
     console.log("🔥 MongoDB Connected Successfully");
-    
-    // GridFS setup
-    const db = mongoose.connection.db;
-    const bucket = new GridFSBucket(db, { bucketName: "evidenceFiles" });
-    console.log("📁 GridFS Bucket Ready");
-    
-    return bucket;
   } catch (error) {
     console.error("❌ Database connection failed:", error);
     process.exit(1);
   }
 };
 
-let bucket;
-connectDB().then(b => bucket = b);
+connectDB();
 
 // ---------- MULTER CONFIG ----------
 const upload = multer({ 
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
+    fileSize: 5 * 1024 * 1024, // 5MB limit
   },
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image/')) {
@@ -67,7 +58,8 @@ const blockSchema = new mongoose.Schema({
   timestamp: { type: String, required: true },
   text: { type: String, required: true },
   imageHash: String,
-  imageId: String,
+  imageData: String, // ✅ Base64 image data store karenge
+  imageMimeType: String, // ✅ Image type store karenge
   previousHash: { type: String, required: true },
   hash: { type: String, required: true, unique: true },
   status: { type: String, default: "valid", enum: ["valid", "frozen", "invalid"] }
@@ -88,7 +80,7 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   role: { type: String, required: true, enum: ["admin", "staff"] }
 });
-const User = mongoose.model("UX", userSchema); // ✅ UX collection use karo
+const User = mongoose.model("UX", userSchema);
 
 const logSchema = new mongoose.Schema({
   username: { type: String, required: true },
@@ -138,7 +130,8 @@ const initializeDefaults = async () => {
         timestamp: new Date().toISOString(),
         text: "GENESIS BLOCK - SYSTEM INITIALIZED",
         imageHash: "",
-        imageId: "",
+        imageData: "",
+        imageMimeType: "",
         previousHash: "0",
         hash: generateHash("genesis" + Date.now())
       };
@@ -284,32 +277,6 @@ app.post("/auth/login", async (req, res) => {
   }
 });
 
-// ✅ TEST LOGIN ROUTE (Backup ke liye)
-app.post("/auth/login-test", async (req, res) => {
-  try {
-    const { username, password } = req.body;
-    
-    console.log("🧪 TEST LOGIN - Username:", username);
-
-    // Direct hardcoded check
-    if (username === "admin" && password === "admin123") {
-      const token = jwt.sign({ username, role: "admin" }, JWT_SECRET);
-      return res.json({ success: true, token, role: "admin", username });
-    }
-    if (username === "staff" && password === "staff123") {
-      const token = jwt.sign({ username, role: "staff" }, JWT_SECRET);
-      return res.json({ success: true, token, role: "staff", username });
-    }
-
-    console.log("❌ TEST LOGIN FAILED");
-    return res.status(401).json({ error: "Invalid credentials" });
-    
-  } catch (error) {
-    console.error("💥 TEST LOGIN ERROR:", error);
-    res.status(500).json({ error: "Login failed" });
-  }
-});
-
 app.post("/auth/logout", authenticate(), async (req, res) => {
   try {
     await logAction(req.user.username, "LOGOUT", req);
@@ -328,19 +295,24 @@ app.post("/addBlock", authenticate("staff"), upload.single("image"), async (req,
       return res.status(400).json({ error: "Evidence text is required" });
     }
 
-    let imageId = null;
     let imageHash = "";
+    let imageData = "";
+    let imageMimeType = "";
 
-    // Handle image upload
+    // Handle image upload - BASE64 format mein convert karo
     if (req.file) {
       try {
+        // Image ka hash generate karo
         imageHash = generateHash(req.file.buffer);
-        const uploadStream = bucket.openUploadStream(
-          `${Date.now()}-${req.file.originalname}`
-        );
         
-        uploadStream.end(req.file.buffer);
-        imageId = uploadStream.id.toString();
+        // Image ko base64 format mein convert karo
+        imageData = req.file.buffer.toString('base64');
+        imageMimeType = req.file.mimetype;
+        
+        console.log("📸 Image uploaded - Hash:", imageHash);
+        console.log("📸 Image size:", req.file.size, "bytes");
+        console.log("📸 Image type:", imageMimeType);
+        
       } catch (fileError) {
         console.error("File upload error:", fileError);
         return res.status(500).json({ error: "Image upload failed" });
@@ -361,7 +333,8 @@ app.post("/addBlock", authenticate("staff"), upload.single("image"), async (req,
       timestamp,
       text: text.trim(),
       imageHash,
-      imageId,
+      imageData, // ✅ Base64 image data
+      imageMimeType, // ✅ Image type
       previousHash,
       hash
     };
@@ -383,7 +356,10 @@ app.post("/addBlock", authenticate("staff"), upload.single("image"), async (req,
 
     res.json({ 
       success: true, 
-      block: newBlock,
+      block: {
+        ...newBlock,
+        imageData: undefined // ✅ Frontend ko base64 data nahi bhejenge
+      },
       message: "Evidence block added successfully"
     });
 
@@ -398,10 +374,11 @@ app.post("/addBlock", authenticate("staff"), upload.single("image"), async (req,
   }
 });
 
+// Staff ke liye - without image data
 app.get("/chain", authenticate("staff"), async (req, res) => {
   try {
     const chain = await PublicBlock.find()
-      .select('-imageId -previousHash -hash')
+      .select('-imageId -previousHash -hash -imageData -imageMimeType')
       .sort({ index: 1 });
     
     res.json(chain);
@@ -411,13 +388,53 @@ app.get("/chain", authenticate("staff"), async (req, res) => {
   }
 });
 
+// Admin ke liye - with image hash but without image data
 app.get("/chain/admin", authenticate("admin"), async (req, res) => {
   try {
-    const chain = await PublicBlock.find().sort({ index: 1 });
+    const chain = await PublicBlock.find()
+      .select('-imageData -imageMimeType') // ✅ Image data hide karo
+      .sort({ index: 1 });
+    
     res.json(chain);
   } catch (error) {
     console.error("Get admin chain error:", error);
     res.status(500).json({ error: "Failed to fetch blockchain" });
+  }
+});
+
+// ✅ NEW ROUTE: Admin image dekhe (Hash se real image)
+app.get("/image/:blockIndex", authenticate("admin"), async (req, res) => {
+  try {
+    const { blockIndex } = req.params;
+    
+    const block = await PublicBlock.findOne({ index: parseInt(blockIndex) });
+    
+    if (!block) {
+      return res.status(404).json({ error: "Block not found" });
+    }
+
+    if (!block.imageData || !block.imageMimeType) {
+      return res.status(404).json({ error: "No image found for this block" });
+    }
+
+    console.log("🖼️ Serving image for block:", blockIndex);
+    
+    // Base64 data ko buffer mein convert karo
+    const imageBuffer = Buffer.from(block.imageData, 'base64');
+    
+    // Image headers set karo
+    res.set({
+      'Content-Type': block.imageMimeType,
+      'Content-Length': imageBuffer.length,
+      'Content-Disposition': `inline; filename="evidence-${blockIndex}.${block.imageMimeType.split('/')[1]}"`
+    });
+    
+    // Image send karo
+    res.send(imageBuffer);
+    
+  } catch (error) {
+    console.error("Image access error:", error);
+    res.status(500).json({ error: "Failed to access image" });
   }
 });
 
@@ -629,32 +646,6 @@ app.post("/restore/reject/:id", authenticate("admin"), async (req, res) => {
   }
 });
 
-// ---------- IMAGE ACCESS ----------
-app.get("/file/:id", authenticate("admin"), async (req, res) => {
-  try {
-    const fileId = new mongoose.Types.ObjectId(req.params.id);
-    
-    const files = await bucket.find({ _id: fileId }).toArray();
-    if (files.length === 0) {
-      return res.status(404).json({ error: "File not found" });
-    }
-
-    res.set('Content-Type', files[0].contentType);
-    
-    const downloadStream = bucket.openDownloadStream(fileId);
-    
-    downloadStream.on('error', () => {
-      res.status(404).send('File not found');
-    });
-    
-    downloadStream.pipe(res);
-    
-  } catch (error) {
-    console.error("File access error:", error);
-    res.status(500).json({ error: "Failed to access file" });
-  }
-});
-
 // ---------- LOGS ----------
 app.get("/logs", authenticate("admin"), async (req, res) => {
   try {
@@ -674,7 +665,7 @@ app.get("/logs", authenticate("admin"), async (req, res) => {
 app.use((error, req, res, next) => {
   if (error instanceof multer.MulterError) {
     if (error.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ error: 'File too large' });
+      return res.status(400).json({ error: 'File too large (max 5MB)' });
     }
   }
   
