@@ -1,123 +1,211 @@
+
 <!DOCTYPE html>
 <html>
 <head>
-<title>Staff Portal - Evidence System</title>
+<title>Staff Evidence Dashboard</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-body { background:#0c0c0c; color:#00eaff; font-family: monospace; padding:15px; }
-h2 { color:#4dfcff; }
-input, textarea, select {
- width:100%; padding:10px; background:black; color:#fff;
- border:1px solid #00eaff; margin-top:5px; margin-bottom:10px;
- border-radius:6px;
+body {
+    background: #0d0d0d;
+    font-family: Arial, sans-serif;
+    color: white;
+    margin: 0;
+    padding: 0;
 }
-button{
- background:#00eaff; border:none; padding:10px;
- border-radius:6px; cursor:pointer; color:black;
- font-weight:bold; margin:6px;
+
+h2 {
+    text-align: center;
+    margin-top: 15px;
+    color: #00e1ff;
 }
-.block{
- background:rgba(255,255,255,0.07);
- padding:15px; border-radius:10px; margin:10px 0;
- border:1px solid #00eaff;
+
+.container {
+    width: 90%;
+    margin: auto;
+}
+
+.card {
+    background: #1b1b1b;
+    padding: 18px;
+    margin-top: 15px;
+    border-radius: 10px;
+    border: 1px solid #00e1ff;
+}
+
+input, textarea {
+    width: 100%;
+    padding: 10px;
+    margin-top: 8px;
+    border-radius: 5px;
+    border: none;
+    outline: none;
+    background: #2a2a2a;
+    color: white;
+}
+
+button {
+    background: #00e1ff;
+    border: none;
+    padding: 10px 18px;
+    margin-top: 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+button:hover {
+    background: cyan;
+}
+
+.block {
+    background: #131313;
+    padding: 15px;
+    border-radius: 10px;
+    border-left: 4px solid #00e1ff;
+    margin-bottom: 10px;
+}
+
+.status {
+    background: #444;
+    padding: 3px 7px;
+    border-radius: 5px;
+    font-size: 12px;
+    display: inline-block;
+}
+
+.loader {
+    display:none;
+    margin-top:10px;
+    color:#00ffea;
 }
 </style>
 </head>
+
 <body>
 
-<h2>👨‍💼 Staff Dashboard</h2>
+<h2>📂 Evidence Submission (Staff Panel)</h2>
 
-<button onclick="validate()">Validate Blockchain</button>
-<button onclick="logout()">Logout</button>
-<hr>
+<div class="container">
 
-<h3>📌 Add New Evidence</h3>
-<textarea id="eText" placeholder="Write evidence description..."></textarea>
-<input type="file" id="eFile">
-<button onclick="submitEvidence()">Submit Evidence</button>
+    <div class="card">
+        <label>Evidence Text:</label>
+        <textarea id="text" rows="4" placeholder="Write evidence details..."></textarea>
 
-<hr>
+        <label>Attach Image (optional):</label>
+        <input type="file" id="img" accept="image/*">
 
-<h3>📩 Request Block Restore</h3>
-<input type="number" id="restoreIndex" placeholder="Block number">
-<textarea id="restoreReason" placeholder="Why restore?"></textarea>
-<button onclick="sendRestore()">Send Request</button>
+        <button onclick="addEvidence()">Submit Evidence</button>
+        <button onclick="loadBlocks()">🔄 Refresh</button>
+        <button onclick="validate()">✔ Validate Chain</button>
+        <button onclick="logout()" style="background:#ff4747; color:white;">Logout</button>
 
-<hr>
+        <p id="msg" class="loader">⏳ Processing...</p>
+    </div>
 
-<h3>📚 Blockchain (Limited View)</h3>
-<div id="chain">Loading...</div>
+    <h3 style="margin-top:20px;">🔗 Submitted Evidence</h3>
+    <div id="blocks"></div>
+
+</div>
+
 
 <script>
 const API = "https://block-chain-0xps.onrender.com";
 const token = localStorage.getItem("token");
-if(!token) location.href="login.html";
 
-// ---- LOAD CHAIN ----
-async function loadChain(){
- let res = await fetch(API+"/chain/staff",{ headers:{Authorization:token} });
- let data = await res.json();
- let box = document.getElementById("chain");
- box.innerHTML="";
+if(!token) window.location.href = "login.html";
 
- data.forEach(b=>{
-  box.innerHTML+=`
-   <div class="block">
-    <b>Block #${b.index}</b><br>
-    <p>${b.text}</p>
-    <p>Status: <b>${b.status}</b></p>
-   </div>
-  `;
- });
+async function addEvidence(){
+    const msg = document.getElementById("msg");
+    const text = document.getElementById("text").value;
+    const img = document.getElementById("img").files[0];
+
+    if(!text.trim()) return alert("⚠ Please enter evidence details.");
+
+    msg.style.display = "block";
+    msg.innerText = "⏳ Uploading...";
+
+    let fd = new FormData();
+    fd.append("text", text);
+    if(img) fd.append("image", img);
+
+    let res = await fetch(`${API}/addBlock`, {
+        method: "POST",
+        headers: { "Authorization": token },
+        body: fd
+    });
+
+    let data = await res.json();
+    msg.style.display = "none";
+
+    if(data.success){
+        alert("✔ Evidence Submitted");
+        document.getElementById("text").value = "";
+        document.getElementById("img").value = "";
+        loadBlocks();
+    } else {
+        alert("❌ Failed to submit.");
+    }
 }
 
-// ---- SUBMIT EVIDENCE ----
-async function submitEvidence(){
- let fd = new FormData();
- fd.append("text",document.getElementById("eText").value);
- if(document.getElementById("eFile").files[0]) 
-   fd.append("image",document.getElementById("eFile").files[0]);
+async function loadBlocks(){
+    let res = await fetch(`${API}/chain/staff`,{
+        headers:{ "Authorization": token }
+    });
 
- await fetch(API+"/addBlock",{ method:"POST", headers:{Authorization:token}, body:fd });
+    let blocks = await res.json();
+    let box = document.getElementById("blocks");
+    box.innerHTML = "";
 
- alert("Evidence Added Successfully");
- document.getElementById("eText").value="";
- document.getElementById("eFile").value="";
- loadChain();
+    if(blocks.length === 0){
+        box.innerHTML = "<p>No evidence added yet.</p>";
+        return;
+    }
+
+    blocks.forEach(b=>{
+        box.innerHTML += `
+        <div class="block">
+            <b>Block #${b.index}</b><br>
+            <small>${new Date(b.timestamp).toLocaleString()}</small>
+            <p>${b.text}</p>
+            <span class="status">${b.status}</span><br><br>
+            <button onclick="restoreRequest(${b.index})">📌 Request Restore</button>
+        </div>`;
+    });
 }
 
-// ---- RESTORE REQUEST ----
-async function sendRestore(){
- const index=document.getElementById("restoreIndex").value;
- const reason=document.getElementById("restoreReason").value;
+async function restoreRequest(index){
+    let reason = prompt("Reason for restore request:");
+    if(!reason) return;
 
- await fetch(API+"/restore/request",{
-   method:"POST",
-   headers:{ "Content-Type":"application/json", Authorization:token },
-   body:JSON.stringify({ blockIndex:index, reason })
- });
+    await fetch(`${API}/restore/request`,{
+        method:"POST",
+        headers:{ "Content-Type":"application/json", "Authorization":token },
+        body:JSON.stringify({ blockIndex:index, reason })
+    });
 
- alert("Restore Request Sent");
- document.getElementById("restoreIndex").value="";
- document.getElementById("restoreReason").value="";
+    alert("📩 Request sent to admin.");
 }
 
-// ---- VALIDATE ----
 async function validate(){
- let res = await fetch(API+"/validate",{headers:{Authorization:token}});
- let d = await res.json();
- if(d.valid) alert("✔ Blockchain Valid — No tampering detected.");
- else alert("❌ WARNING: "+d.issue);
+    let res = await fetch(`${API}/validate`,{
+        headers:{ "Authorization": token }
+    });
+
+    let result = await res.json();
+    alert(result.msg);
 }
 
-// ---- LOGOUT ----
 async function logout(){
- await fetch(API+"/activity/logout",{method:"POST",headers:{Authorization:token}});
- localStorage.clear();
- location.href="login.html";
+    await fetch(`${API}/activity/logout`,{
+        method:"POST",
+        headers:{ "Authorization":token }
+    });
+
+    localStorage.removeItem("token");
+    window.location.href="login.html";
 }
 
-loadChain();
+loadBlocks();
 </script>
 
 </body>
