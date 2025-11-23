@@ -513,8 +513,8 @@
         </section>
     </div>
 
-    <script>
-        const API = window.location.origin;
+    
+       /* const API = window.location.origin;
         let token = localStorage.getItem("token");
         
         if (!token) {
@@ -1005,7 +1005,653 @@
                 to { transform: translateX(100%); opacity: 0; }
             }
         `;
-        document.head.appendChild(style);
+        document.head.appendChild(style);*/
+        <script>
+const API = window.location.origin;
+let token = localStorage.getItem("token");
+
+if (!token) {
+    window.location.href = "/login.html";
+}
+
+// Initialize on load
+document.addEventListener('DOMContentLoaded', function() {
+    loadDashboard();
+    updateUserInfo();
+});
+
+// Navigation
+function showSection(sectionId) {
+    // Hide all sections
+    document.querySelectorAll('.content-section').forEach(section => {
+        section.classList.remove('active');
+    });
+    
+    // Remove active class from all buttons
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Show selected section and activate button
+    document.getElementById(sectionId).classList.add('active');
+    event.target.classList.add('active');
+    
+    // Load section data
+    switch(sectionId) {
+        case 'dashboard':
+            loadDashboard();
+            break;
+        case 'blockchain':
+            loadChain();
+            break;
+        case 'requests':
+            loadRequests();
+            break;
+        case 'logs':
+            loadLogs();
+            break;
+        case 'validation':
+            runValidation();
+            break;
+    }
+}
+
+// Update user info
+function updateUserInfo() {
+    try {
+        const tokenData = JSON.parse(atob(token.split('.')[1]));
+        document.getElementById('adminUsername').textContent = tokenData.username;
+    } catch (e) {
+        console.error('Error parsing token:', e);
+    }
+}
+
+// Dashboard
+async function loadDashboard() {
+    try {
+        // Load stats
+        const [chainRes, requestsRes, logsRes] = await Promise.all([
+            fetch(API + "/chain/admin", { headers: { "Authorization": token } }),
+            fetch(API + "/restore/requests", { headers: { "Authorization": token } }),
+            fetch(API + "/logs?limit=5", { headers: { "Authorization": token } })
+        ]);
+
+        const chain = await chainRes.json();
+        const requests = await requestsRes.json();
+        const logs = await logsRes.json();
+
+        // Update stats
+        document.getElementById('totalBlocks').textContent = chain.length;
+        document.getElementById('validBlocks').textContent = chain.filter(b => b.status === 'valid').length;
+        document.getElementById('frozenBlocks').textContent = chain.filter(b => b.status === 'frozen').length;
+        document.getElementById('pendingRequests').textContent = requests.filter(r => r.status === 'pending').length;
+
+        // Update recent activity
+        const activityBox = document.getElementById('recentActivity');
+        if (logs.length > 0) {
+            activityBox.innerHTML = logs.map(log => `
+                <div class="block">
+                    <div class="block-content">
+                        <strong>${log.username}</strong> - ${log.action}
+                        <div style="font-size: 0.8rem; opacity: 0.7; margin-top: 0.3rem;">
+                            ${new Date(log.timestamp).toLocaleString()}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            activityBox.innerHTML = '<p>No recent activity</p>';
+        }
+
+    } catch (error) {
+        console.error('Dashboard error:', error);
+        showError('Failed to load dashboard data');
+    }
+}
+
+// Load Blockchain
+async function loadChain() {
+    const box = document.getElementById('chainBox');
+    box.innerHTML = `
+        <div class="loading">
+            <div class="spinner"></div>
+            Loading blockchain...
+        </div>
+    `;
+
+    try {
+        const res = await fetch(API + "/chain/admin", {
+            headers: { "Authorization": token }
+        });
+
+        if (!res.ok) throw new Error('Network response was not ok');
+
+        const data = await res.json();
+        
+        if (!data || data.length === 0) {
+            box.innerHTML = '<p>No evidence blocks found in the blockchain.</p>';
+            return;
+        }
+
+        box.innerHTML = data.map(block => `
+            <div class="block">
+                <div class="block-header">
+                    <div class="block-title">Block #${block.index}</div>
+                    <div class="status-badge status-${block.status}">${block.status.toUpperCase()}</div>
+                </div>
+                
+                <div class="block-content">
+                    <div><strong>Evidence:</strong> ${block.text}</div>
+                    <div><strong>Timestamp:</strong> ${new Date(block.timestamp).toLocaleString()}</div>
+                    
+                    <div style="margin-top: 0.8rem;">
+                        <strong>Image Hash:</strong>
+                        <div class="hash">
+                            ${block.imageHash ? 
+                                `<span class="clickable" onclick="viewImage(${block.index})" title="Click to view image" style="cursor: pointer; color: #00ff88; text-decoration: underline;">
+                                    ${block.imageHash} 👁️ View Image
+                                </span>` 
+                                : 'No Image'
+                            }
+                        </div>
+                    </div>
+                    
+                    <div><strong>Previous Hash:</strong> <div class="hash">${block.previousHash}</div></div>
+                    <div><strong>Block Hash:</strong> <div class="hash">${block.hash}</div></div>
+                    
+                    <div style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        <button class="btn btn-warning" onclick="freezeBlock(${block.index})">❄️ Freeze</button>
+                        <button class="btn btn-danger" onclick="invalidateBlock(${block.index})">🚫 Invalidate</button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+
+    } catch (error) {
+        console.error('Load chain error:', error);
+        box.innerHTML = '<p style="color: var(--danger);">Error loading blockchain</p>';
+    }
+}
+
+// View Image Function
+async function viewImage(blockIndex) {
+    try {
+        console.log("🖼️ Loading image for block:", blockIndex);
+        
+        const imageUrl = `${API}/image/${blockIndex}`;
+        
+        // Check if image exists first
+        const testResponse = await fetch(imageUrl, {
+            headers: { "Authorization": token },
+            method: 'HEAD'
+        });
+
+        if (!testResponse.ok) {
+            alert('No image found for this block');
+            return;
+        }
+
+        // New tab mein image open karo
+        const newWindow = window.open('', '_blank');
+        
+        // Loading message show karo
+        newWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Evidence Image - Block #${blockIndex}</title>
+                <style>
+                    body { 
+                        background: #0a0a0a; 
+                        color: #00eaff; 
+                        font-family: Arial, sans-serif; 
+                        display: flex; 
+                        flex-direction: column; 
+                        align-items: center; 
+                        justify-content: center; 
+                        min-height: 100vh; 
+                        margin: 0; 
+                        padding: 20px;
+                        text-align: center;
+                    }
+                    .container {
+                        max-width: 90%;
+                        margin: 0 auto;
+                    }
+                    .loading { 
+                        text-align: center; 
+                        font-size: 18px; 
+                    }
+                    .spinner {
+                        border: 4px solid rgba(0, 234, 255, 0.3);
+                        border-top: 4px solid #00eaff;
+                        border-radius: 50%;
+                        width: 40px;
+                        height: 40px;
+                        animation: spin 1s linear infinite;
+                        margin: 20px auto;
+                    }
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                    img { 
+                        max-width: 100%; 
+                        max-height: 70vh; 
+                        border: 2px solid #00eaff;
+                        border-radius: 10px;
+                        box-shadow: 0 0 20px rgba(0, 234, 255, 0.5);
+                        margin: 20px 0;
+                    }
+                    .info {
+                        margin: 15px 0;
+                        text-align: center;
+                        font-size: 14px;
+                        opacity: 0.8;
+                    }
+                    .error {
+                        color: #ff4444;
+                        text-align: center;
+                        padding: 20px;
+                        font-size: 16px;
+                    }
+                    button {
+                        background: #00eaff;
+                        color: #000;
+                        border: none;
+                        padding: 10px 20px;
+                        border-radius: 5px;
+                        cursor: pointer;
+                        font-weight: bold;
+                        margin: 10px;
+                    }
+                    button:hover {
+                        background: #00ff88;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h2>🔍 Evidence Image</h2>
+                    <div class="info">Block #${blockIndex}</div>
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <div>Loading Evidence Image...</div>
+                    </div>
+                </div>
+                <script>
+                    // Load image
+                    const img = new Image();
+                    img.onload = function() {
+                        document.body.innerHTML = \`
+                            <div class="container">
+                                <h2>🔍 Evidence Image</h2>
+                                <div class="info">Block #${blockIndex}</div>
+                                <img src="${imageUrl}" alt="Evidence Image Block ${blockIndex}">
+                                <div class="info">
+                                    <p>Image loaded successfully</p>
+                                    <button onclick="window.print()">🖨️ Print</button>
+                                    <button onclick="window.close()">❌ Close</button>
+                                </div>
+                            </div>
+                        \`;
+                    };
+                    img.onerror = function() {
+                        document.body.innerHTML = \`
+                            <div class="container">
+                                <div class="error">
+                                    ❌ Failed to load image<br>
+                                    The image may be corrupted or unavailable.
+                                </div>
+                                <button onclick="window.close()">Close</button>
+                            </div>
+                        \`;
+                    };
+                    img.src = "${imageUrl}";
+                <\/script>
+            </body>
+            </html>
+        `);
+
+    } catch (error) {
+        console.error('View image error:', error);
+        alert('Error loading image: ' + error.message);
+    }
+}
+
+// Freeze Block
+async function freezeBlock(index) {
+    if (!confirm(`Are you sure you want to freeze Block #${index}?`)) return;
+
+    try {
+        const res = await fetch(API + `/freeze/${index}`, {
+            method: "POST",
+            headers: { "Authorization": token }
+        });
+
+        const result = await res.json();
+        
+        if (result.success) {
+            showSuccess(`Block #${index} frozen successfully`);
+            loadChain();
+            loadDashboard();
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        console.error('Freeze error:', error);
+        showError('Failed to freeze block');
+    }
+}
+
+// Invalidate Block
+async function invalidateBlock(index) {
+    if (!confirm(`Are you sure you want to invalidate Block #${index}? This action cannot be undone.`)) return;
+
+    try {
+        const res = await fetch(API + `/invalidate/${index}`, {
+            method: "POST",
+            headers: { "Authorization": token }
+        });
+
+        const result = await res.json();
+        
+        if (result.success) {
+            showSuccess(`Block #${index} invalidated successfully`);
+            loadChain();
+            loadDashboard();
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        console.error('Invalidate error:', error);
+        showError('Failed to invalidate block');
+    }
+}
+
+// Load Restore Requests
+async function loadRequests() {
+    const box = document.getElementById('requestsBox');
+    box.innerHTML = `
+        <div class="loading">
+            <div class="spinner"></div>
+            Loading restore requests...
+        </div>
+    `;
+
+    try {
+        const res = await fetch(API + "/restore/requests", {
+            headers: { "Authorization": token }
+        });
+
+        const data = await res.json();
+        
+        if (!data || data.length === 0) {
+            box.innerHTML = '<p>No pending restore requests.</p>';
+            return;
+        }
+
+        box.innerHTML = data.map(request => `
+            <div class="block">
+                <div class="block-header">
+                    <div class="block-title">Request from ${request.user}</div>
+                    <div class="status-badge status-${request.status}">${request.status.toUpperCase()}</div>
+                </div>
+                
+                <div class="block-content">
+                    <div><strong>Block Index:</strong> #${request.blockIndex}</div>
+                    <div><strong>Reason:</strong> ${request.reason}</div>
+                    <div><strong>Submitted:</strong> ${new Date(request.timestamp).toLocaleString()}</div>
+                    
+                    ${request.status === 'pending' ? `
+                        <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                            <button class="btn btn-success" onclick="approveRequest('${request._id}')">✅ Approve</button>
+                            <button class="btn btn-danger" onclick="rejectRequest('${request._id}')">❌ Reject</button>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        `).join('');
+
+    } catch (error) {
+        console.error('Load requests error:', error);
+        box.innerHTML = '<p style="color: var(--danger);">Error loading requests</p>';
+    }
+}
+
+// Approve Restore Request
+async function approveRequest(requestId) {
+    if (!confirm('Approve this restore request? This will restore the entire blockchain from master backup.')) return;
+
+    try {
+        const res = await fetch(API + `/restore/approve/${requestId}`, {
+            method: "POST",
+            headers: { "Authorization": token }
+        });
+
+        const result = await res.json();
+        
+        if (result.success) {
+            showSuccess('Blockchain restored successfully from master backup');
+            loadRequests();
+            loadDashboard();
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        console.error('Approve error:', error);
+        showError('Failed to approve restore request');
+    }
+}
+
+// Reject Restore Request
+async function rejectRequest(requestId) {
+    if (!confirm('Reject this restore request?')) return;
+
+    try {
+        const res = await fetch(API + `/restore/reject/${requestId}`, {
+            method: "POST",
+            headers: { "Authorization": token }
+        });
+
+        const result = await res.json();
+        
+        if (result.success) {
+            showSuccess('Restore request rejected');
+            loadRequests();
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        console.error('Reject error:', error);
+        showError('Failed to reject restore request');
+    }
+}
+
+// Load Logs
+async function loadLogs() {
+    const box = document.getElementById('logBox');
+    box.innerHTML = `
+        <div class="loading">
+            <div class="spinner"></div>
+            Loading system logs...
+        </div>
+    `;
+
+    try {
+        const res = await fetch(API + "/logs", {
+            headers: { "Authorization": token }
+        });
+
+        const data = await res.json();
+        
+        if (!data || data.length === 0) {
+            box.innerHTML = '<p>No system logs available.</p>';
+            return;
+        }
+
+        box.innerHTML = `
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Action</th>
+                        <th>Timestamp</th>
+                        <th>IP Address</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${data.map(log => `
+                        <tr>
+                            <td>${log.username}</td>
+                            <td>${log.action}</td>
+                            <td>${new Date(log.timestamp).toLocaleString()}</td>
+                            <td>${log.ip || 'N/A'}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+
+    } catch (error) {
+        console.error('Load logs error:', error);
+        box.innerHTML = '<p style="color: var(--danger);">Error loading logs</p>';
+    }
+}
+
+// Run Validation
+async function runValidation() {
+    const loading = document.getElementById('validationLoading');
+    const output = document.getElementById('validationOutput');
+    
+    loading.style.display = 'block';
+    output.innerHTML = '';
+
+    try {
+        const res = await fetch(API + "/validate", {
+            headers: { "Authorization": token }
+        });
+
+        const result = await res.json();
+        loading.style.display = 'none';
+
+        if (result.valid) {
+            output.innerHTML = `
+                <div style="color: var(--secondary); text-align: center; padding: 2rem;">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">✅</div>
+                    <h3 style="color: var(--secondary); margin-bottom: 1rem;">Blockchain Valid</h3>
+                    <p>All ${result.blockCount} blocks are securely linked and untampered.</p>
+                    <p style="margin-top: 1rem; font-size: 0.9rem; opacity: 0.8;">
+                        Last validated: ${new Date().toLocaleString()}
+                    </p>
+                </div>
+            `;
+        } else {
+            output.innerHTML = `
+                <div style="color: var(--danger); text-align: center; padding: 2rem;">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">❌</div>
+                    <h3 style="color: var(--danger); margin-bottom: 1rem;">Validation Failed</h3>
+                    <p><strong>Issue:</strong> ${result.issue}</p>
+                    <p><strong>Tampered at block:</strong> ${result.tamperedAt}</p>
+                    <div style="margin-top: 1.5rem;">
+                        <button class="btn btn-warning" onclick="loadRequests()">Check Restore Requests</button>
+                    </div>
+                </div>
+            `;
+        }
+
+    } catch (error) {
+        loading.style.display = 'none';
+        output.innerHTML = `
+            <div style="color: var(--danger); text-align: center;">
+                <p>Error running validation: ${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+// Validate Chain (from dashboard)
+async function validateChain() {
+    showSection('validation');
+    runValidation();
+}
+
+// Notification functions
+function showSuccess(message) {
+    showNotification(message, 'success');
+}
+
+function showError(message) {
+    showNotification(message, 'error');
+}
+
+function showNotification(message, type) {
+    // Remove existing notifications
+    document.querySelectorAll('.notification').forEach(n => n.remove());
+    
+    const notification = document.createElement('div');
+    notification.className = 'notification';
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 1rem 1.5rem;
+        border-radius: 8px;
+        color: white;
+        font-weight: bold;
+        z-index: 1000;
+        animation: slideIn 0.3s ease;
+        ${type === 'success' ? 'background: #00ff88;' : 'background: #ff4444;'}
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+    `;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
+
+// Logout
+async function logout() {
+    if (confirm('Are you sure you want to logout?')) {
+        try {
+            await fetch(API + "/auth/logout", {
+                method: "POST",
+                headers: { "Authorization": token }
+            });
+        } catch (error) {
+            console.error('Logout error:', error);
+        } finally {
+            localStorage.removeItem("token");
+            window.location.href = "/login.html";
+        }
+    }
+}
+
+// Add CSS for animations
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes slideOut {
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(100%); opacity: 0; }
+    }
+    .clickable {
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    .clickable:hover {
+        color: #00ff88 !important;
+        text-shadow: 0 0 10px #00ff88;
+    }
+`;
+document.head.appendChild(style);
+                
     </script>
 </body>
 </html>
