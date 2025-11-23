@@ -2,213 +2,218 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Admin Panel | Evidence Blockchain</title>
+<title>Admin - Digital Evidence Blockchain</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
-:root{
-  --primary:#00f7ff;
-  --glow:#00ffee55;
-  --danger:#ff3b53;
-  --success:#00ff95;
-  --warning:#ffc400;
-  --bg:#020202;
+body {
+    background: #020202;
+    color: cyan;
+    font-family: monospace;
+    margin: 0;
 }
 
-body{
-  background:var(--bg);
-  color:var(--primary);
-  margin:0;
-  font-family:"Segoe UI",sans-serif;
+header {
+    padding: 15px;
+    background: rgba(0,255,255,0.1);
+    backdrop-filter: blur(6px);
+    border-bottom: 1px solid cyan;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
-header{
-  background:rgba(0,0,0,.5);
-  padding:15px;
-  text-align:center;
-  font-size:22px;
-  box-shadow:0 0 15px var(--glow);
+button {
+    background: cyan;
+    border: none;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 8px;
 }
 
-.container{
-  width:92%;
-  margin:auto;
-  padding:20px;
+#dashboard {
+    padding: 20px;
 }
 
-.section{
-  background:rgba(0,0,0,.4);
-  border:1px solid var(--primary);
-  padding:20px;
-  border-radius:15px;
-  box-shadow:0 0 20px var(--glow);
-  margin-bottom:25px;
+.card {
+    background: rgba(0,0,0,0.6);
+    border: 1px solid cyan;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
 }
 
-h2{
-  margin-top:0;
-  text-shadow:0 0 10px var(--primary);
+.block {
+    padding: 10px;
+    border: 1px solid cyan;
+    margin-bottom: 10px;
+    border-radius: 8px;
 }
 
-button{
-  padding:10px 18px;
-  border:none;
-  cursor:pointer;
-  border-radius:20px;
-  font-weight:bold;
-  margin:5px;
-  transition:.3s;
+img {
+    max-width: 100%;
+    margin-top: 10px;
+    border: 1px solid cyan;
 }
 
-.logout-btn{ background:var(--danger); }
-.action-btn{ background:var(--primary); color:black; }
-.approve-btn{ background:var(--success); }
-.reject-btn{ background:var(--danger); }
-
-button:hover{ transform:scale(1.08); }
-
-.block, .request{
-  border:1px solid var(--primary);
-  padding:15px;
-  border-radius:10px;
-  margin-top:10px;
-  box-shadow:0 0 15px var(--glow);
+.badge {
+    display: inline-block;
+    padding: 5px 10px;
+    background: lime;
+    color: black;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    font-weight: bold;
 }
+.invalid { background: red; }
+.frozen { background: yellow; }
+.pending { background: orange; }
+.approved { background: lime; }
+.rejected { background: gray; }
 
-.badge{
-  padding:5px 10px;
-  border-radius:10px;
-  font-size:12px;
-  color:black;
-  font-weight:bold;
-}
-
-.valid{background:var(--success);}
-.invalid{background:var(--danger);}
-.frozen{background:var(--warning);}
-
-#msg{
-  margin-top:10px;
-  font-size:14px;
-}
 </style>
 </head>
 <body>
 
 <header>
-  👑 Admin Control Panel
-  <button class="logout-btn" style="float:right;" onclick="logout()">Logout</button>
+    <h2>⚡ ADMIN PANEL</h2>
+    <button onclick="logout()">Logout</button>
 </header>
 
-<div class="container">
+<div id="dashboard">
 
-<!-- Blockchain Section -->
-<div class="section">
-  <h2>📦 Blockchain Records</h2>
-  <button class="action-btn" onclick="loadChain()">Refresh Chain</button>
-  <div id="chain"></div>
-</div>
+    <div class="card">
+        <h3>Blockchain Overview</h3>
+        <button onclick="loadChain()">📂 Load Blockchain</button>
+        <button onclick="validate()">🕵️ Validate Chain</button>
+        <p id="chainStatus"></p>
+        <div id="chain"></div>
+    </div>
 
-<!-- Restore Request Section -->
-<div class="section">
-  <h2>📩 Pending Restore Requests</h2>
+    <div class="card">
+        <h3>Restore Approval Requests</h3>
+        <button onclick="loadRequests()">📨 Load Requests</button>
+        <div id="requests"></div>
+    </div>
 
-  <button class="action-btn" onclick="loadRequests()">Refresh Requests</button>
-
-  <div id="requests"></div>
-</div>
-
-<p id="msg"></p>
 </div>
 
 <script>
-const API="https://block-chain-0xps.onrender.com";
-const token=localStorage.getItem("token");
-const role=localStorage.getItem("role");
+const API = "https://block-chain-0xps.onrender.com";
+let token = localStorage.getItem("token");
 
-if(!token || role!=="admin"){
-  alert("❌ Access Denied");
-  window.location="login.html";
-}
+// Redirect if no token
+if (!token) location.href = "login.html";
 
-// LOGOUT
-function logout(){
+// ------- Logout -------
+function logout() {
   localStorage.clear();
-  window.location="login.html";
+  location.href = "login.html";
 }
 
-// LOAD BLOCKCHAIN
-async function loadChain(){
-  const res=await fetch(API+"/chain");
-  const data=await res.json();
+// ------- Load Blockchain -------
+async function loadChain() {
+  const res = await fetch(API + "/chain", {
+    headers: { "Authorization": token }
+  });
 
-  let html="";
-  data.forEach(b=>{
-    html+=`
+  const chain = await res.json();
+  const box = document.getElementById("chain");
+  box.innerHTML = "";
+
+  chain.forEach(b => {
+    box.innerHTML += `
       <div class="block">
-        <b>Block #${b.index}</b><br>
-        Status: <span class="badge ${b.status}">${b.status}</span><br>
-        Text: ${b.text}<br>
-        Hash: ${b.hash}<br>
-        Previous: ${b.previousHash}<br>
+        <div class="badge ${b.status}">${b.status.toUpperCase()}</div>
+
+        <p><b>Block #${b.index}</b></p>
+        <p><b>Timestamp:</b> ${b.timestamp}</p>
+        <p><b>Description:</b> ${b.text}</p>
+
+        <p><b>Hash:</b> ${b.hash}</p>
+        <p><b>Previous Hash:</b> ${b.previousHash}</p>
+        <p><b>Image Hash:</b> ${b.imageHash || "None"}</p>
+
+        ${b.imageId ? `<img src="${API}/file/${b.imageId}" />` : "<i>No Image</i>"}
+
+        <button onclick="freeze(${b.index})">Freeze</button>
+        <button onclick="invalidate(${b.index})">Invalidate</button>
       </div>`;
   });
-
-  document.getElementById("chain").innerHTML=html || "No blocks found.";
 }
 
-// LOAD RESTORE REQUESTS
-async function loadRequests(){
-  const res=await fetch(API+"/restore/requests",{
-    headers:{ authorization:token }
+// ------- Freeze Block -------
+async function freeze(index) {
+  await fetch(API + "/freeze/" + index, {
+    method: "POST",
+    headers: { "Authorization": token }
   });
 
-  const data=await res.json();
-  let html="";
-
-  data.forEach(r=>{
-    html+=`
-    <div class="request">
-      <b>Request #${r._id}</b><br>
-      User: ${r.user}<br>
-      Block: ${r.blockIndex}<br>
-      Reason: ${r.reason}<br>
-      Status: <b>${r.status}</b><br><br>
-
-      ${r.status==="pending"
-      ? `<button class="approve-btn" onclick="approve('${r._id}')">Approve</button>
-         <button class="reject-btn" onclick="rejectReq('${r._id}')">Reject</button>`
-      : `<i>Action completed</i>`}
-    </div>`;
-  });
-
-  document.getElementById("requests").innerHTML=html || "No pending requests.";
+  loadChain();
 }
 
-// APPROVE
-async function approve(id){
-  await fetch(`${API}/restore/approve/${id}`,{
-    method:"POST",
-    headers:{ authorization:token }
+// ------- Invalidate Block -------
+async function invalidate(index) {
+  await fetch(API + "/invalidate/" + index, {
+    method: "POST",
+    headers: { "Authorization": token }
   });
 
-  document.getElementById("msg").innerHTML="✔ Restore Approved & Chain Updated";
-  loadRequests(); loadChain();
+  loadChain();
 }
 
-// REJECT
-async function rejectReq(id){
-  await fetch(`${API}/restore/reject/${id}`,{
-    method:"POST",
-    headers:{ authorization:token }
+// ------- Validate Chain -------
+async function validate() {
+  const res = await fetch(API + "/validate");
+  const data = await res.json();
+
+  document.getElementById("chainStatus").innerHTML =
+    data.valid ? "✔ Blockchain is Secure" : `❌ Tampered: ${data.issue}`;
+}
+
+// ------- Load Restore Requests -------
+async function loadRequests() {
+  const res = await fetch(API + "/restore/requests", {
+    headers: { "Authorization": token }
   });
 
-  document.getElementById("msg").innerHTML="❌ Request Rejected";
+  const requests = await res.json();
+  const box = document.getElementById("requests");
+  box.innerHTML = "";
+
+  requests.forEach(r => {
+    box.innerHTML += `
+      <div class="block">
+        <span class="badge ${r.status}">${r.status.toUpperCase()}</span>
+        <p><b>User:</b> ${r.user}</p>
+        <p><b>Block:</b> ${r.blockIndex}</p>
+        <p><b>Reason:</b> ${r.reason}</p>
+
+        <button onclick="approve('${r._id}')">Approve</button>
+        <button onclick="reject('${r._id}')">Reject</button>
+      </div>`;
+  });
+}
+
+// ------- Approve -------
+async function approve(id) {
+  await fetch(API + "/restore/approve/" + id, {
+    method: "POST",
+    headers: { "Authorization": token }
+  });
   loadRequests();
 }
 
-loadChain();
-loadRequests();
+// ------- Reject -------
+async function reject(id) {
+  await fetch(API + "/restore/reject/" + id, {
+    method: "POST",
+    headers: { "Authorization": token }
+  });
+  loadRequests();
+}
 </script>
 
 </body>
