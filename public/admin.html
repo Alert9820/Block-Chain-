@@ -1,237 +1,1011 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <title>⚖ Admin Panel - Evidence Blockchain</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        :root {
+            --primary: #00eaff;
+            --primary-glow: rgba(0, 234, 255, 0.3);
+            --secondary: #00ff88;
+            --danger: #ff4444;
+            --warning: #ffaa00;
+            --bg-dark: #0a0a0a;
+            --card-bg: rgba(0, 30, 40, 0.8);
+        }
 
-<style>
-body {
-    background: #0d0d0d;
-    color: #00eaff;
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-}
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-header {
-    background: #001d26;
-    padding: 12px;
-    text-align: center;
-    font-size: 22px;
-    font-weight: bold;
-    border-bottom: 2px solid #00eaff;
-}
+        body {
+            background: var(--bg-dark);
+            color: var(--primary);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+        }
 
-button {
-    background: #00eaff;
-    border: none;
-    padding: 8px 14px;
-    margin: 5px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: bold;
-}
-button:hover {
-    background: #00a6b3;
-}
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #001d26 0%, #003344 100%);
+            padding: 1rem 2rem;
+            border-bottom: 3px solid var(--primary);
+            box-shadow: 0 0 30px var(--primary-glow);
+        }
 
-#chainBox, #requestsBox, #logBox {
-    padding: 15px;
-}
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
 
-.block {
-    border: 1px solid #00eaff;
-    padding: 12px;
-    margin-bottom: 10px;
-    background: rgba(0, 255, 255, 0.05);
-    border-radius: 6px;
-}
+        .logo {
+            font-size: 1.8rem;
+            font-weight: bold;
+            text-shadow: 0 0 15px var(--primary);
+        }
 
-.hash {
-    cursor: pointer;
-    color: #ffdd57;
-}
-.hash:hover {
-    text-decoration: underline;
-}
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
 
-.hidden {
-    display: none;
-}
-</style>
+        .username {
+            background: rgba(0, 234, 255, 0.2);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            border: 1px solid var(--primary);
+        }
 
+        /* Navigation */
+        .nav-tabs {
+            display: flex;
+            gap: 0.5rem;
+            padding: 1rem 2rem;
+            background: rgba(0, 20, 30, 0.9);
+            border-bottom: 1px solid var(--primary-glow);
+            overflow-x: auto;
+        }
+
+        .nav-btn {
+            padding: 0.8rem 1.5rem;
+            background: transparent;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        .nav-btn:hover {
+            background: var(--primary);
+            color: #000;
+            box-shadow: 0 0 15px var(--primary);
+        }
+
+        .nav-btn.active {
+            background: var(--primary);
+            color: #000;
+            box-shadow: 0 0 15px var(--primary);
+        }
+
+        /* Main Content */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .content-section {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Cards */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--primary);
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 0 20px var(--primary-glow);
+            backdrop-filter: blur(10px);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--primary-glow);
+        }
+
+        .card-title {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: var(--secondary);
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 0.7rem 1.2rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            margin: 0.2rem;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: #000;
+        }
+
+        .btn-primary:hover {
+            background: var(--secondary);
+            box-shadow: 0 0 15px var(--secondary);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #ff6666;
+            box-shadow: 0 0 15px var(--danger);
+        }
+
+        .btn-warning {
+            background: var(--warning);
+            color: #000;
+        }
+
+        .btn-warning:hover {
+            background: #ffbb33;
+            box-shadow: 0 0 15px var(--warning);
+        }
+
+        .btn-success {
+            background: var(--secondary);
+            color: #000;
+        }
+
+        .btn-success:hover {
+            background: #33ff99;
+            box-shadow: 0 0 15px var(--secondary);
+        }
+
+        /* Blocks */
+        .block {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid var(--primary);
+            border-radius: 12px;
+            padding: 1.2rem;
+            margin-bottom: 1rem;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .block:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 25px var(--primary-glow);
+        }
+
+        .block::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 4px;
+            background: var(--primary);
+        }
+
+        .block-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.8rem;
+        }
+
+        .block-title {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .status-badge {
+            padding: 0.3rem 0.8rem;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .status-valid {
+            background: var(--secondary);
+            color: #000;
+        }
+
+        .status-frozen {
+            background: var(--warning);
+            color: #000;
+        }
+
+        .status-invalid {
+            background: var(--danger);
+            color: white;
+        }
+
+        .block-content {
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .hash {
+            font-family: monospace;
+            background: rgba(0, 234, 255, 0.1);
+            padding: 0.3rem 0.6rem;
+            border-radius: 5px;
+            margin: 0.2rem 0;
+            word-break: break-all;
+            font-size: 0.8rem;
+        }
+
+        .clickable {
+            cursor: pointer;
+            color: var(--secondary);
+            transition: all 0.3s;
+        }
+
+        .clickable:hover {
+            text-shadow: 0 0 10px var(--secondary);
+        }
+
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            border: 1px solid var(--primary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            box-shadow: 0 0 15px var(--primary-glow);
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--secondary);
+            text-shadow: 0 0 10px var(--secondary);
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            margin-top: 0.5rem;
+        }
+
+        /* Tables */
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        .table th,
+        .table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--primary-glow);
+        }
+
+        .table th {
+            background: rgba(0, 234, 255, 0.1);
+            color: var(--secondary);
+            font-weight: bold;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--secondary);
+        }
+
+        .spinner {
+            border: 3px solid rgba(0, 234, 255, 0.3);
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .nav-tabs {
+                padding: 1rem;
+            }
+
+            .container {
+                padding: 1rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .block-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+        }
+    </style>
 </head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">⚖ ADMIN EVIDENCE BLOCKCHAIN SYSTEM</div>
+            <div class="user-info">
+                <div class="username" id="adminUsername">Admin</div>
+                <button class="btn btn-danger" onclick="logout()">🚪 Logout</button>
+            </div>
+        </div>
+    </header>
 
-<body onload="init()">
+    <!-- Navigation -->
+    <nav class="nav-tabs">
+        <button class="nav-btn active" onclick="showSection('dashboard')">📊 Dashboard</button>
+        <button class="nav-btn" onclick="showSection('blockchain')">🔗 Blockchain</button>
+        <button class="nav-btn" onclick="showSection('requests')">📩 Restore Requests</button>
+        <button class="nav-btn" onclick="showSection('logs')">📜 System Logs</button>
+        <button class="nav-btn" onclick="showSection('validation')">🔍 Validation</button>
+    </nav>
 
-<header>⚖ ADMIN EVIDENCE BLOCKCHAIN SYSTEM</header>
+    <!-- Main Content -->
+    <div class="container">
+        <!-- Dashboard Section -->
+        <section id="dashboard" class="content-section active">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalBlocks">0</div>
+                    <div class="stat-label">Total Blocks</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="validBlocks">0</div>
+                    <div class="stat-label">Valid Blocks</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="frozenBlocks">0</div>
+                    <div class="stat-label">Frozen Blocks</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="pendingRequests">0</div>
+                    <div class="stat-label">Pending Requests</div>
+                </div>
+            </div>
 
-<div style="padding:12px; text-align:center;">
-    <button onclick="loadChain()">📦 Blockchain</button>
-    <button onclick="validateChain()">✔ Validate</button>
-    <button onclick="loadRequests()">📩 Restore Requests</button>
-    <button onclick="loadLogs()">📜 Logs</button>
-    <button onclick="logout()" style="background:#ff4444;color:white;">🚪 Logout</button>
-</div>
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">🚀 Quick Actions</div>
+                </div>
+                <div>
+                    <button class="btn btn-primary" onclick="validateChain()">🔍 Validate Blockchain</button>
+                    <button class="btn btn-warning" onclick="showSection('blockchain')">📦 View All Blocks</button>
+                    <button class="btn btn-success" onclick="showSection('requests')">📩 Check Restore Requests</button>
+                </div>
+            </div>
 
-<hr style="border-color:#00eaff;">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">📈 Recent Activity</div>
+                </div>
+                <div id="recentActivity">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading activity...
+                    </div>
+                </div>
+            </div>
+        </section>
 
-<div id="mainContent">
-    <h3 style="padding-left:12px;">📦 Blockchain Records</h3>
-    <div id="chainBox">Loading...</div>
-</div>
+        <!-- Blockchain Section -->
+        <section id="blockchain" class="content-section">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">🔗 Evidence Blockchain</div>
+                    <button class="btn btn-primary" onclick="loadChain()">🔄 Refresh</button>
+                </div>
+                <div id="chainBox">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading blockchain...
+                    </div>
+                </div>
+            </div>
+        </section>
 
-<script>
-const API = location.origin;
-let token = localStorage.getItem("token");
-if(!token) location.href = "/login.html";
+        <!-- Restore Requests Section -->
+        <section id="requests" class="content-section">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">📩 Restore Requests</div>
+                    <button class="btn btn-primary" onclick="loadRequests()">🔄 Refresh</button>
+                </div>
+                <div id="requestsBox">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading requests...
+                    </div>
+                </div>
+            </div>
+        </section>
 
-// 🔹 Show Chain
-async function loadChain() {
-    showMessage("Loading blockchain...");
+        <!-- Logs Section -->
+        <section id="logs" class="content-section">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">📜 System Logs</div>
+                    <button class="btn btn-primary" onclick="loadLogs()">🔄 Refresh</button>
+                </div>
+                <div id="logBox">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading logs...
+                    </div>
+                </div>
+            </div>
+        </section>
 
-    let res = await fetch(API + "/chain/admin", {
-        headers: { "Authorization": token }
-    });
+        <!-- Validation Section -->
+        <section id="validation" class="content-section">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">🔍 Blockchain Validation</div>
+                    <button class="btn btn-primary" onclick="runValidation()">🔄 Run Validation</button>
+                </div>
+                <div id="validationResult">
+                    <div class="loading" id="validationLoading" style="display: none;">
+                        <div class="spinner"></div>
+                        Validating blockchain...
+                    </div>
+                    <div id="validationOutput" style="padding: 1rem;"></div>
+                </div>
+            </div>
+        </section>
+    </div>
 
-    let data = await res.json();
-    const box = document.getElementById("chainBox");
-    box.innerHTML = "";
+    <script>
+        const API = window.location.origin;
+        let token = localStorage.getItem("token");
+        
+        if (!token) {
+            window.location.href = "/login.html";
+        }
 
-    if (!data.length) return box.innerHTML = "<p>No Records Found.</p>";
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDashboard();
+            updateUserInfo();
+        });
 
-    data.forEach(b => {
-        box.innerHTML += `
-        <div class="block">
-            <b>Block #${b.index}</b> | Status: ${b.status.toUpperCase()}<br>
-            <b>Text:</b> ${b.text}<br>
-            <b>Image Hash:</b> <span class="hash" onclick="viewImage('${b.imageId}')">${b.imageHash || "No Image"}</span><br>
-            <b>Block Hash:</b> ${b.hash}<br>
-            <b>Prev Hash:</b> ${b.previousHash}<br><br>
+        // Navigation
+        function showSection(sectionId) {
+            // Hide all sections
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected section and activate button
+            document.getElementById(sectionId).classList.add('active');
+            event.target.classList.add('active');
+            
+            // Load section data
+            switch(sectionId) {
+                case 'dashboard':
+                    loadDashboard();
+                    break;
+                case 'blockchain':
+                    loadChain();
+                    break;
+                case 'requests':
+                    loadRequests();
+                    break;
+                case 'logs':
+                    loadLogs();
+                    break;
+                case 'validation':
+                    runValidation();
+                    break;
+            }
+        }
 
-            <button onclick="freeze(${b.index})">Freeze</button>
-            <button onclick="invalidate(${b.index})" style="background:#ff5757;">Invalidate</button>
-        </div>`;
-    });
-}
+        // Update user info
+        function updateUserInfo() {
+            try {
+                const tokenData = JSON.parse(atob(token.split('.')[1]));
+                document.getElementById('adminUsername').textContent = tokenData.username;
+            } catch (e) {
+                console.error('Error parsing token:', e);
+            }
+        }
 
-// 🔹 Freeze
-async function freeze(i) {
-    await fetch(API + `/freeze/${i}`, {
-        method: "POST",
-        headers: { "Authorization": token }
-    });
-    loadChain();
-}
+        // Dashboard
+        async function loadDashboard() {
+            try {
+                // Load stats
+                const [chainRes, requestsRes, logsRes] = await Promise.all([
+                    fetch(API + "/chain/admin", { headers: { "Authorization": token } }),
+                    fetch(API + "/restore/requests", { headers: { "Authorization": token } }),
+                    fetch(API + "/logs?limit=5", { headers: { "Authorization": token } })
+                ]);
 
-// 🔹 Invalidate
-async function invalidate(i) {
-    await fetch(API + `/invalidate/${i}`, {
-        method: "POST",
-        headers: { "Authorization": token }
-    });
-    loadChain();
-}
+                const chain = await chainRes.json();
+                const requests = await requestsRes.json();
+                const logs = await logsRes.json();
 
-// 🔹 View Image
-function viewImage(id) {
-    if(!id || id === "null") return alert("No Image");
+                // Update stats
+                document.getElementById('totalBlocks').textContent = chain.length;
+                document.getElementById('validBlocks').textContent = chain.filter(b => b.status === 'valid').length;
+                document.getElementById('frozenBlocks').textContent = chain.filter(b => b.status === 'frozen').length;
+                document.getElementById('pendingRequests').textContent = requests.filter(r => r.status === 'pending').length;
 
-    let url = API + `/reveal/${id}`;
-    window.open(url, "_blank");
-}
+                // Update recent activity
+                const activityBox = document.getElementById('recentActivity');
+                if (logs.length > 0) {
+                    activityBox.innerHTML = logs.map(log => `
+                        <div class="block">
+                            <div class="block-content">
+                                <strong>${log.username}</strong> - ${log.action}
+                                <div style="font-size: 0.8rem; opacity: 0.7; margin-top: 0.3rem;">
+                                    ${new Date(log.timestamp).toLocaleString()}
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    activityBox.innerHTML = '<p>No recent activity</p>';
+                }
 
-// 🔹 Validate
-async function validateChain() {
-    let res = await fetch(API + "/validate", { headers:{Authorization:token}});
-    let result = await res.json();
+            } catch (error) {
+                console.error('Dashboard error:', error);
+                showError('Failed to load dashboard data');
+            }
+        }
 
-    if(result.valid) alert("✓ Blockchain Valid & Untampered");
-    else alert("❌ Blockchain Issue: " + result.issue);
-}
+        // Load Blockchain
+        async function loadChain() {
+            const box = document.getElementById('chainBox');
+            box.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Loading blockchain...
+                </div>
+            `;
 
-// 🔹 Load Requests
-async function loadRequests() {
-    showMessage("Loading restore requests...");
+            try {
+                const res = await fetch(API + "/chain/admin", {
+                    headers: { "Authorization": token }
+                });
 
-    let res = await fetch(API + "/restore/requests", {
-        headers: { Authorization: token }
-    });
+                if (!res.ok) throw new Error('Network response was not ok');
 
-    let data = await res.json();
-    const box = document.getElementById("chainBox");
-    box.innerHTML = "";
+                const data = await res.json();
+                
+                if (!data || data.length === 0) {
+                    box.innerHTML = '<p>No evidence blocks found in the blockchain.</p>';
+                    return;
+                }
 
-    if (!data.length) return box.innerHTML = "<p>No requests.</p>";
+                box.innerHTML = data.map(block => `
+                    <div class="block">
+                        <div class="block-header">
+                            <div class="block-title">Block #${block.index}</div>
+                            <div class="status-badge status-${block.status}">${block.status.toUpperCase()}</div>
+                        </div>
+                        
+                        <div class="block-content">
+                            <div><strong>Evidence:</strong> ${block.text}</div>
+                            <div><strong>Timestamp:</strong> ${new Date(block.timestamp).toLocaleString()}</div>
+                            
+                            <div style="margin-top: 0.8rem;">
+                                <strong>Image Hash:</strong>
+                                <div class="hash">
+                                    ${block.imageHash || 'No Image'}
+                                    ${block.imageId ? `<span class="clickable" onclick="viewImage('${block.imageId}')"> 👁️ View Image</span>` : ''}
+                                </div>
+                            </div>
+                            
+                            <div><strong>Previous Hash:</strong> <div class="hash">${block.previousHash}</div></div>
+                            <div><strong>Block Hash:</strong> <div class="hash">${block.hash}</div></div>
+                            
+                            <div style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                <button class="btn btn-warning" onclick="freezeBlock(${block.index})">❄️ Freeze</button>
+                                <button class="btn btn-danger" onclick="invalidateBlock(${block.index})">🚫 Invalidate</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
 
-    data.forEach(r => {
-        box.innerHTML += `
-        <div class="block">
-            <b>${r.user}</b> requested restore of Block #${r.blockIndex}<br>
-            Reason: ${r.reason}<br>
-            Status: <b>${r.status}</b><br><br>
+            } catch (error) {
+                console.error('Load chain error:', error);
+                box.innerHTML = '<p style="color: var(--danger);">Error loading blockchain</p>';
+            }
+        }
 
-            <button onclick="approve('${r._id}')">Approve</button>
-            <button onclick="reject('${r._id}')" style="background:#ff5757;">Reject</button>
-        </div>`;
-    });
-}
+        // Freeze Block
+        async function freezeBlock(index) {
+            if (!confirm(`Are you sure you want to freeze Block #${index}?`)) return;
 
-// 🔹 Approve
-async function approve(id) {
-    await fetch(API + `/restore/approve/${id}`, {
-        method: "POST",
-        headers: { Authorization: token }
-    });
-    alert("Restored!");
-    loadRequests();
-}
+            try {
+                const res = await fetch(API + `/freeze/${index}`, {
+                    method: "POST",
+                    headers: { "Authorization": token }
+                });
 
-// 🔹 Reject
-async function reject(id) {
-    await fetch(API + `/restore/reject/${id}`, {
-        method: "POST",
-        headers: { Authorization: token }
-    });
-    loadRequests();
-}
+                const result = await res.json();
+                
+                if (result.success) {
+                    showSuccess(`Block #${index} frozen successfully`);
+                    loadChain();
+                    loadDashboard();
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                console.error('Freeze error:', error);
+                showError('Failed to freeze block');
+            }
+        }
 
-// 🔹 Logs
-async function loadLogs() {
-    showMessage("Loading logs...");
+        // Invalidate Block
+        async function invalidateBlock(index) {
+            if (!confirm(`Are you sure you want to invalidate Block #${index}? This action cannot be undone.`)) return;
 
-    let res = await fetch(API + "/logs", {
-        headers: { Authorization: token }
-    });
+            try {
+                const res = await fetch(API + `/invalidate/${index}`, {
+                    method: "POST",
+                    headers: { "Authorization": token }
+                });
 
-    let data = await res.json();
-    const box = document.getElementById("chainBox");
-    box.innerHTML = "";
+                const result = await res.json();
+                
+                if (result.success) {
+                    showSuccess(`Block #${index} invalidated successfully`);
+                    loadChain();
+                    loadDashboard();
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                console.error('Invalidate error:', error);
+                showError('Failed to invalidate block');
+            }
+        }
 
-    data.forEach(log => {
-        box.innerHTML += `<div class="block">🧍 ${log.username} – ${log.action} at ${log.timestamp}</div>`;
-    });
-}
+        // View Image
+        function viewImage(imageId) {
+            if (!imageId) {
+                alert('No image available for this block');
+                return;
+            }
+            
+            const imageUrl = `${API}/file/${imageId}`;
+            window.open(imageUrl, '_blank');
+        }
 
-// Logout
-async function logout() {
-    await fetch(API + "/auth/logout", {
-        method: "POST",
-        headers: { Authorization: token }
-    });
+        // Load Restore Requests
+        async function loadRequests() {
+            const box = document.getElementById('requestsBox');
+            box.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Loading restore requests...
+                </div>
+            `;
 
-    localStorage.removeItem("token");
-    location.href = "/login.html";
-}
+            try {
+                const res = await fetch(API + "/restore/requests", {
+                    headers: { "Authorization": token }
+                });
 
-// message UI
-function showMessage(msg){
-    document.getElementById("chainBox").innerHTML = `<p style="color:yellow;">${msg}</p>`;
-}
+                const data = await res.json();
+                
+                if (!data || data.length === 0) {
+                    box.innerHTML = '<p>No pending restore requests.</p>';
+                    return;
+                }
 
-function init(){ loadChain(); }
+                box.innerHTML = data.map(request => `
+                    <div class="block">
+                        <div class="block-header">
+                            <div class="block-title">Request from ${request.user}</div>
+                            <div class="status-badge status-${request.status}">${request.status.toUpperCase()}</div>
+                        </div>
+                        
+                        <div class="block-content">
+                            <div><strong>Block Index:</strong> #${request.blockIndex}</div>
+                            <div><strong>Reason:</strong> ${request.reason}</div>
+                            <div><strong>Submitted:</strong> ${new Date(request.timestamp).toLocaleString()}</div>
+                            
+                            ${request.status === 'pending' ? `
+                                <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                                    <button class="btn btn-success" onclick="approveRequest('${request._id}')">✅ Approve</button>
+                                    <button class="btn btn-danger" onclick="rejectRequest('${request._id}')">❌ Reject</button>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `).join('');
 
-</script>
+            } catch (error) {
+                console.error('Load requests error:', error);
+                box.innerHTML = '<p style="color: var(--danger);">Error loading requests</p>';
+            }
+        }
 
+        // Approve Restore Request
+        async function approveRequest(requestId) {
+            if (!confirm('Approve this restore request? This will restore the entire blockchain from master backup.')) return;
+
+            try {
+                const res = await fetch(API + `/restore/approve/${requestId}`, {
+                    method: "POST",
+                    headers: { "Authorization": token }
+                });
+
+                const result = await res.json();
+                
+                if (result.success) {
+                    showSuccess('Blockchain restored successfully from master backup');
+                    loadRequests();
+                    loadDashboard();
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                console.error('Approve error:', error);
+                showError('Failed to approve restore request');
+            }
+        }
+
+        // Reject Restore Request
+        async function rejectRequest(requestId) {
+            if (!confirm('Reject this restore request?')) return;
+
+            try {
+                const res = await fetch(API + `/restore/reject/${requestId}`, {
+                    method: "POST",
+                    headers: { "Authorization": token }
+                });
+
+                const result = await res.json();
+                
+                if (result.success) {
+                    showSuccess('Restore request rejected');
+                    loadRequests();
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                console.error('Reject error:', error);
+                showError('Failed to reject restore request');
+            }
+        }
+
+        // Load Logs
+        async function loadLogs() {
+            const box = document.getElementById('logBox');
+            box.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Loading system logs...
+                </div>
+            `;
+
+            try {
+                const res = await fetch(API + "/logs", {
+                    headers: { "Authorization": token }
+                });
+
+                const data = await res.json();
+                
+                if (!data || data.length === 0) {
+                    box.innerHTML = '<p>No system logs available.</p>';
+                    return;
+                }
+
+                box.innerHTML = `
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Action</th>
+                                <th>Timestamp</th>
+                                <th>IP Address</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.map(log => `
+                                <tr>
+                                    <td>${log.username}</td>
+                                    <td>${log.action}</td>
+                                    <td>${new Date(log.timestamp).toLocaleString()}</td>
+                                    <td>${log.ip || 'N/A'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+
+            } catch (error) {
+                console.error('Load logs error:', error);
+                box.innerHTML = '<p style="color: var(--danger);">Error loading logs</p>';
+            }
+        }
+
+        // Run Validation
+        async function runValidation() {
+            const loading = document.getElementById('validationLoading');
+            const output = document.getElementById('validationOutput');
+            
+            loading.style.display = 'block';
+            output.innerHTML = '';
+
+            try {
+                const res = await fetch(API + "/validate", {
+                    headers: { "Authorization": token }
+                });
+
+                const result = await res.json();
+                loading.style.display = 'none';
+
+                if (result.valid) {
+                    output.innerHTML = `
+                        <div style="color: var(--secondary); text-align: center; padding: 2rem;">
+                            <div style="font-size: 3rem; margin-bottom: 1rem;">✅</div>
+                            <h3 style="color: var(--secondary); margin-bottom: 1rem;">Blockchain Valid</h3>
+                            <p>All ${result.blockCount} blocks are securely linked and untampered.</p>
+                            <p style="margin-top: 1rem; font-size: 0.9rem; opacity: 0.8;">
+                                Last validated: ${new Date().toLocaleString()}
+                            </p>
+                        </div>
+                    `;
+                } else {
+                    output.innerHTML = `
+                        <div style="color: var(--danger); text-align: center; padding: 2rem;">
+                            <div style="font-size: 3rem; margin-bottom: 1rem;">❌</div>
+                            <h3 style="color: var(--danger); margin-bottom: 1rem;">Validation Failed</h3>
+                            <p><strong>Issue:</strong> ${result.issue}</p>
+                            <p><strong>Tampered at block:</strong> ${result.tamperedAt}</p>
+                            <div style="margin-top: 1.5rem;">
+                                <button class="btn btn-warning" onclick="loadRequests()">Check Restore Requests</button>
+                            </div>
+                        </div>
+                    `;
+                }
+
+            } catch (error) {
+                loading.style.display = 'none';
+                output.innerHTML = `
+                    <div style="color: var(--danger); text-align: center;">
+                        <p>Error running validation: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Validate Chain (from dashboard)
+        async function validateChain() {
+            showSection('validation');
+            runValidation();
+        }
+
+        // Notification functions
+        function showSuccess(message) {
+            showNotification(message, 'success');
+        }
+
+        function showError(message) {
+            showNotification(message, 'error');
+        }
+
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 1rem 1.5rem;
+                border-radius: 8px;
+                color: white;
+                font-weight: bold;
+                z-index: 1000;
+                animation: slideIn 0.3s ease;
+                ${type === 'success' ? 'background: var(--secondary);' : 'background: var(--danger);'}
+            `;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+
+        // Logout
+        async function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                try {
+                    await fetch(API + "/auth/logout", {
+                        method: "POST",
+                        headers: { "Authorization": token }
+                    });
+                } catch (error) {
+                    console.error('Logout error:', error);
+                } finally {
+                    localStorage.removeItem("token");
+                    window.location.href = "/login.html";
+                }
+            }
+        }
+
+        // Add CSS for notifications
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
 </body>
 </html>
