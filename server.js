@@ -8,17 +8,17 @@ import jwt from "jsonwebtoken";
 import { GridFSBucket } from "mongodb";
 
 dotenv.config();
+
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-const JWT_SECRET = "SUPER_SECRET_256_KEY";
-
-// ---------- PAGE ROUTING (IMPORTANT) ----------
+// 👉 DEFAULT PAGE (Login Page)
 app.get("/", (req, res) => {
   res.sendFile(process.cwd() + "/public/login.html");
 });
 
+// 👉 Serve Frontend Files
 app.use(express.static("public"));
 
 app.get("/admin", (req, res) => {
@@ -30,25 +30,36 @@ app.get("/staff", (req, res) => {
 });
 
 
-// ---------- DB CONNECT ----------
+// ==========================
+// 🔥 Database Connection
+// ==========================
+console.log("⏳ Connecting to MongoDB...");
 await mongoose.connect(process.env.MONGO_URL);
 console.log("🔥 MongoDB Connected");
 
 
-// ---------- GRIDFS ----------
+// ==========================
+// 📦 GridFS Init
+// ==========================
 let bucket = null;
 mongoose.connection.once("open", () => {
   bucket = new GridFSBucket(mongoose.connection.db, { bucketName: "evidenceFiles" });
-  console.log("📦 Evidence Storage Ready");
+  console.log("📁 GridFS Bucket Ready");
 });
 
 
-// ---------- UTILITIES ----------
+// ==========================
+// 🧠 Utilities
+// ==========================
 const hashGen = buffer => crypto.createHash("sha256").update(buffer).digest("hex");
 const upload = multer({ storage: multer.memoryStorage() });
 
+const JWT_SECRET = "SUPER_SECRET_SYSTEM_256";
 
-// ---------- MODELS ----------
+
+// ==========================
+// 🧱 Schemas
+// ==========================
 const BlockSchema = {
   index: Number,
   timestamp: String,
@@ -60,10 +71,10 @@ const BlockSchema = {
   status: { type: String, default: "Valid" }
 };
 
-const PublicBlock = mongoose.model("publicBlockchain", BlockSchema);
-const MasterBlock = mongoose.model("masterBlockchain", BlockSchema);
+const PublicBlock = mongoose.model("publicChain", BlockSchema);
+const MasterBlock = mongoose.model("masterChain", BlockSchema);
 
-const Meta = mongoose.model("metaHashStorage", { key: String, value: String });
+const Meta = mongoose.model("metaData", { key: String, value: String }); 
 
 const User = mongoose.model("UX", {
   username: String,
@@ -79,22 +90,27 @@ const RestoreRequest = mongoose.model("restoreRequests", {
   time: String
 });
 
-const Activity = mongoose.model("systemLogs", {
+const Activity = mongoose.model("logs", {
   user: String,
   action: String,
   time: String
 });
 
 
-// ---------- TRACK USERS ----------
+// ==========================
+// 👤 Default Login Accounts
+// ==========================
 if (await User.countDocuments() === 0) {
   await User.create({ username: "admin", password: "admin123", role: "admin" });
   await User.create({ username: "staff", password: "staff123", role: "staff" });
-  console.log("✔ Default Accounts Ready");
+
+  console.log("✔ Default Users: admin/admin123 | staff/staff123");
 }
 
 
-// ---------- AUTH MIDDLEWARE ----------
+// ==========================
+// 🔐 Auth Middleware
+// ==========================
 function auth(role = null) {
   return (req, res, next) => {
     const token = req.headers.authorization;
@@ -102,7 +118,8 @@ function auth(role = null) {
 
     try {
       const decoded = jwt.verify(token, JWT_SECRET);
-      if (role && decoded.role !== role) return res.json({ error: "Access Denied" });
+      if (role && decoded.role !== role)
+        return res.json({ error: "Access Denied" });
 
       req.user = decoded;
       next();
@@ -113,13 +130,15 @@ function auth(role = null) {
 }
 
 
-// ---------- LOGIN ----------
+// ==========================
+// 🔑 Login Route
+// ==========================
 app.post("/auth/login", async (req, res) => {
   const { username, password } = req.body;
-  const u = await User.findOne({ username });
 
-  if (!u) return res.json({ error: "User not found" });
-  if (password !== u.password) return res.json({ error: "Incorrect Password" });
+  const u = await User.findOne({ username });
+  if (!u) return res.json({ error: "User Not Found" });
+  if (password !== u.password) return res.json({ error: "Wrong Password" });
 
   const token = jwt.sign({ username: u.username, role: u.role }, JWT_SECRET);
 
@@ -129,103 +148,97 @@ app.post("/auth/login", async (req, res) => {
 });
 
 
-// ---------- LOGOUT ----------
-app.post("/activity/logout", auth(), async (req, res) => {
+// ==========================
+// 🚪 Logout
+// ==========================
+app.post("/auth/logout", auth(), async (req, res) => {
   await Activity.create({ user: req.user.username, action: "Logged Out", time: new Date().toISOString() });
   res.json({ done: true });
 });
 
 
-// ---------- LATEST BLOCK ----------
+// ==========================
+// 📌 Get latest block
+// ==========================
 async function latestBlock() {
   return await PublicBlock.findOne().sort({ index: -1 });
 }
 
 
-// ---------- ADD BLOCK ----------
+// ==========================
+// ➕ Add Block  (Staff Only)
+// ==========================
 app.post("/addBlock", auth("staff"), upload.single("image"), async (req, res) => {
-  if (!bucket) return res.json({ error: "System warming up. Try again." });
+  try {
+    if (!bucket) return res.json({ error: "Storage Warming — Try again" });
 
-  let imgHash = "", imgId = "";
-  if (req.file) {
-    imgHash = hashGen(req.file.buffer);
-    const stream = bucket.openUploadStream(Date.now() + "-" + req.file.originalname);
-    stream.end(req.file.buffer);
-    imgId = stream.id.toString();
+    let imgHash = "", imgId = "";
+    if (req.file) {
+      imgHash = hashGen(req.file.buffer);
+      const stream = bucket.openUploadStream(Date.now() + "_" + req.file.originalname);
+      stream.end(req.file.buffer);
+      imgId = stream.id.toString();
+    }
+
+    const prev = await latestBlock();
+    const index = prev ? prev.index + 1 : 1;
+    const timestamp = new Date().toISOString();
+    const prevHash = prev ? prev.hash : "0";
+
+    const newHash = hashGen(Buffer.from(req.body.text + imgHash + timestamp + prevHash));
+
+    const block = { index, timestamp, text: req.body.text, imageId: imgId, imageHash: imgHash, previousHash: prevHash, hash: newHash };
+
+    await PublicBlock.create(block);
+    await MasterBlock.create(block);
+
+    await Meta.findOneAndUpdate({ key: "lastHash" }, { value: newHash }, { upsert: true });
+
+    res.json({ success: true });
+  } catch (err) {
+    res.json({ error: "Upload Error" });
   }
-
-  const prev = await latestBlock();
-  const index = prev ? prev.index + 1 : 1;
-  const timestamp = new Date().toISOString();
-  const prevHash = prev ? prev.hash : "0";
-
-  const newHash = hashGen(Buffer.from(req.body.text + imgHash + timestamp + prevHash));
-
-  const block = { index, timestamp, text: req.body.text, imageId: imgId, imageHash: imgHash, previousHash: prevHash, hash: newHash };
-
-  await PublicBlock.create(block);
-  await MasterBlock.create(block);
-  await Meta.findOneAndUpdate({ key: "lastHash" }, { value: newHash }, { upsert: true });
-
-  res.json({ success: true });
 });
 
 
-// ---------- STAFF LIMITED VIEW ----------
+// ==========================
+// 🧾 Staff Chain (Limited)
+// ==========================
 app.get("/chain/staff", auth("staff"), async (req, res) => {
-  const blocks = await PublicBlock.find().sort({ index: 1 });
-  res.json(blocks.map(b => ({ index: b.index, text: b.text, status: b.status, timestamp: b.timestamp })));
+  const chain = await PublicBlock.find().sort({ index: 1 });
+  res.json(chain.map(b => ({ index: b.index, timestamp: b.timestamp, text: b.text, status: b.status })));
 });
 
 
-// ---------- ADMIN FULL VIEW ----------
+// ==========================
+// 👑 Admin Full Chain
+// ==========================
 app.get("/chain/admin", auth("admin"), async (req, res) => {
   res.json(await PublicBlock.find().sort({ index: 1 }));
 });
 
 
-// ---------- VALIDATION ----------
-app.get("/validate", auth(), async (req, res) => {
-  const chain = await PublicBlock.find().sort({ index: 1 });
-  const meta = await Meta.findOne({ key: "lastHash" });
-
-  if (!chain.length) return res.json({ valid: true, msg: "📦 Blockchain Safe (Empty)" });
-
-  for (let i = 0; i < chain.length; i++)
-    if (chain[i].index !== i + 1) return res.json({ valid: false, msg: "⚠ Block Missing" });
-
-  if (meta.value !== chain.at(-1).hash)
-    return res.json({ valid: false, msg: "⚠ Someone attempted tampering!" });
-
-  res.json({ valid: true, msg: "✔ Blockchain Safe" });
-});
-
-
-// ---------- VIEW IMAGE ----------
-app.get("/reveal/:id", auth("admin"), (req, res) => {
-  try {
-    bucket.openDownloadStream(new mongoose.Types.ObjectId(req.params.id)).pipe(res);
-  } catch {
-    res.send("Image Missing");
-  }
-});
-
-
-// ---------- FREEZE ----------
+// ==========================
+// 🧊 Freeze Block (Admin)
+// ==========================
 app.post("/freeze/:id", auth("admin"), async (req, res) => {
   await PublicBlock.updateOne({ index: req.params.id }, { status: "Frozen" });
   res.json({ done: true });
 });
 
 
-// ---------- INVALIDATE ----------
+// ==========================
+// ⚠ Invalidate Block
+// ==========================
 app.post("/invalidate/:id", auth("admin"), async (req, res) => {
   await PublicBlock.updateOne({ index: req.params.id }, { status: "Invalidated" });
   res.json({ done: true });
 });
 
 
-// ---------- RESTORE REQUEST ----------
+// ==========================
+// 🛠 Restore System
+// ==========================
 app.post("/restore/request", auth("staff"), async (req, res) => {
   await RestoreRequest.create({
     user: req.user.username,
@@ -260,11 +273,47 @@ app.post("/restore/reject/:id", auth("admin"), async (req, res) => {
 });
 
 
-// ---------- ACTIVITY LOG ----------
+// ==========================
+// 🔍 Validate Blockchain
+// ==========================
+app.get("/validate", auth(), async (req, res) => {
+  const chain = await PublicBlock.find().sort({ index: 1 });
+  const meta = await Meta.findOne({ key: "lastHash" });
+
+  if (!chain.length) return res.json({ valid: true, msg: "🟢 Blockchain Empty but Safe" });
+
+  for (let i = 0; i < chain.length; i++)
+    if (chain[i].index !== i + 1)
+      return res.json({ valid: false, msg: `🚨 Block Missing at Position ${i + 1}` });
+
+  if (meta.value !== chain.at(-1).hash)
+    return res.json({ valid: false, msg: "🚨 Tampering Attempt Detected" });
+
+  res.json({ valid: true, msg: "✔ Blockchain Verified — No Tampering" });
+});
+
+
+// ==========================
+// 🖼 Reveal Image (Admin Only)
+// ==========================
+app.get("/reveal/:id", auth("admin"), (req, res) => {
+  try {
+    bucket.openDownloadStream(new mongoose.Types.ObjectId(req.params.id)).pipe(res);
+  } catch {
+    res.send("File Missing");
+  }
+});
+
+
+// ==========================
+// 📜 Activity Logs
+// ==========================
 app.get("/logs", auth("admin"), async (req, res) => {
   res.json(await Activity.find().sort({ _id: -1 }).limit(50));
 });
 
 
-// ---------- SERVER START ----------
-app.listen(10000, () => console.log("🚀 Blockchain System Running @ 10000"));
+// ==========================
+// 🚀 START SERVER
+// ==========================
+app.listen(10000, () => console.log("🚀 Blockchain Evidence System Running on Port 10000"));
