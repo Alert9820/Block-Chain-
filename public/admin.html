@@ -515,7 +515,7 @@
 
         
 <script>
-const API = window.location.origin;
+/*const API = window.location.origin;
 let token = localStorage.getItem("token");
 
 if (!token) {
@@ -1037,6 +1037,364 @@ style.textContent = \`
     @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
 \`;
 document.head.appendChild(style);
+
+*/
+    
 </script>
+    <script>
+const API = window.location.origin;
+let token = localStorage.getItem("token");
+if (!token) window.location.href = "/login.html";
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    loadDashboard();
+    updateUserInfo();
+});
+
+// Navigation
+function showSection(sectionId) {
+    document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(sectionId).classList.add('active');
+    event.target.classList.add('active');
+    
+    const loaders = {
+        'dashboard': loadDashboard,
+        'blockchain': loadChain,
+        'requests': loadRequests,
+        'logs': loadLogs,
+        'validation': runValidation
+    };
+    if (loaders[sectionId]) loaders[sectionId]();
+}
+
+// Update user info
+function updateUserInfo() {
+    try {
+        const tokenData = JSON.parse(atob(token.split('.')[1]));
+        document.getElementById('adminUsername').textContent = tokenData.username;
+    } catch (e) {
+        console.error('Token error:', e);
+    }
+}
+
+// Dashboard
+async function loadDashboard() {
+    try {
+        const [chain, requests, logs] = await Promise.all([
+            fetchJSON("/chain/admin"),
+            fetchJSON("/restore/requests"),
+            fetchJSON("/logs?limit=5")
+        ]);
+
+        document.getElementById('totalBlocks').textContent = chain.length;
+        document.getElementById('validBlocks').textContent = chain.filter(b => b.status === 'valid').length;
+        document.getElementById('frozenBlocks').textContent = chain.filter(b => b.status === 'frozen').length;
+        document.getElementById('pendingRequests').textContent = requests.filter(r => r.status === 'pending').length;
+
+        const activityBox = document.getElementById('recentActivity');
+        activityBox.innerHTML = logs.length ? logs.map(log => `
+            <div class="block">
+                <strong>${log.username}</strong> - ${log.action}
+                <div style="font-size:0.8rem;opacity:0.7;margin-top:0.3rem">
+                    ${new Date(log.timestamp).toLocaleString()}
+                </div>
+            </div>
+        `).join('') : '<p>No recent activity</p>';
+    } catch (error) {
+        showError('Failed to load dashboard');
+    }
+}
+
+// Load Blockchain
+async function loadChain() {
+    const box = document.getElementById('chainBox');
+    showLoading(box);
+    
+    try {
+        const data = await fetchJSON("/chain/admin");
+        if (!data.length) {
+            box.innerHTML = '<p>No evidence blocks found.</p>';
+            return;
+        }
+
+        box.innerHTML = data.map(block => `
+            <div class="block">
+                <div class="block-header">
+                    <div class="block-title">Block #${block.index}</div>
+                    <div class="status-badge status-${block.status}">${block.status.toUpperCase()}</div>
+                </div>
+                <div class="block-content">
+                    <div><strong>Evidence:</strong> ${block.text}</div>
+                    <div><strong>Timestamp:</strong> ${new Date(block.timestamp).toLocaleString()}</div>
+                    <div style="margin-top:0.8rem">
+                        <strong>Image Hash:</strong>
+                        <div class="hash">
+                            ${block.imageHash ? 
+                                `<span class="clickable" onclick="viewImage(${block.index})" 
+                                      style="cursor:pointer;color:#00ff88;text-decoration:underline">
+                                    ${block.imageHash.substring(0, 20)}... 👁️ View Image
+                                </span>` 
+                                : 'No Image'
+                            }
+                        </div>
+                    </div>
+                    <div><strong>Previous Hash:</strong> <div class="hash">${block.previousHash}</div></div>
+                    <div><strong>Block Hash:</strong> <div class="hash">${block.hash}</div></div>
+                    <div style="margin-top:1rem;display:flex;gap:0.5rem;flex-wrap:wrap">
+                        <button class="btn btn-warning" onclick="freezeBlock(${block.index})">❄️ Freeze</button>
+                        <button class="btn btn-danger" onclick="invalidateBlock(${block.index})">🚫 Invalidate</button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    } catch (error) {
+        box.innerHTML = '<p style="color:var(--danger)">Error loading blockchain</p>';
+    }
+}
+
+// View Image - SIMPLE AND WORKING VERSION
+async function viewImage(blockIndex) {
+    const imageUrl = `${API}/image/${blockIndex}`;
+    
+    // Direct image open in new tab
+    const newTab = window.open(imageUrl, '_blank');
+    if (!newTab) {
+        alert('Popup blocked! Please allow popups to view images.');
+    }
+}
+
+// Block Actions
+async function freezeBlock(index) {
+    if (!confirm(`Freeze Block #${index}?`)) return;
+    try {
+        const result = await fetchJSON(`/freeze/${index}`, 'POST');
+        if (result.success) {
+            showSuccess(`Block #${index} frozen`);
+            loadChain(); loadDashboard();
+        }
+    } catch (error) {
+        showError('Freeze failed');
+    }
+}
+
+async function invalidateBlock(index) {
+    if (!confirm(`Invalidate Block #${index}? This cannot be undone.`)) return;
+    try {
+        const result = await fetchJSON(`/invalidate/${index}`, 'POST');
+        if (result.success) {
+            showSuccess(`Block #${index} invalidated`);
+            loadChain(); loadDashboard();
+        }
+    } catch (error) {
+        showError('Invalidate failed');
+    }
+}
+
+// Restore Requests
+async function loadRequests() {
+    const box = document.getElementById('requestsBox');
+    showLoading(box);
+    
+    try {
+        const data = await fetchJSON("/restore/requests");
+        if (!data.length) {
+            box.innerHTML = '<p>No pending requests.</p>';
+            return;
+        }
+
+        box.innerHTML = data.map(request => `
+            <div class="block">
+                <div class="block-header">
+                    <div class="block-title">Request from ${request.user}</div>
+                    <div class="status-badge status-${request.status}">${request.status.toUpperCase()}</div>
+                </div>
+                <div class="block-content">
+                    <div><strong>Block Index:</strong> #${request.blockIndex}</div>
+                    <div><strong>Reason:</strong> ${request.reason}</div>
+                    <div><strong>Submitted:</strong> ${new Date(request.timestamp).toLocaleString()}</div>
+                    ${request.status === 'pending' ? `
+                        <div style="margin-top:1rem;display:flex;gap:0.5rem">
+                            <button class="btn btn-success" onclick="approveRequest('${request._id}')">✅ Approve</button>
+                            <button class="btn btn-danger" onclick="rejectRequest('${request._id}')">❌ Reject</button>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        `).join('');
+    } catch (error) {
+        box.innerHTML = '<p style="color:var(--danger)">Error loading requests</p>';
+    }
+}
+
+async function approveRequest(requestId) {
+    if (!confirm('Approve restore request?')) return;
+    try {
+        const result = await fetchJSON(`/restore/approve/${requestId}`, 'POST');
+        if (result.success) {
+            showSuccess('Blockchain restored from backup');
+            loadRequests(); loadDashboard();
+        }
+    } catch (error) {
+        showError('Approve failed');
+    }
+}
+
+async function rejectRequest(requestId) {
+    if (!confirm('Reject restore request?')) return;
+    try {
+        const result = await fetchJSON(`/restore/reject/${requestId}`, 'POST');
+        if (result.success) {
+            showSuccess('Request rejected');
+            loadRequests();
+        }
+    } catch (error) {
+        showError('Reject failed');
+    }
+}
+
+// Logs
+async function loadLogs() {
+    const box = document.getElementById('logBox');
+    showLoading(box);
+    
+    try {
+        const data = await fetchJSON("/logs");
+        if (!data.length) {
+            box.innerHTML = '<p>No logs available.</p>';
+            return;
+        }
+
+        box.innerHTML = `
+            <table class="table">
+                <thead>
+                    <tr><th>User</th><th>Action</th><th>Timestamp</th><th>IP</th></tr>
+                </thead>
+                <tbody>
+                    ${data.map(log => `
+                        <tr>
+                            <td>${log.username}</td>
+                            <td>${log.action}</td>
+                            <td>${new Date(log.timestamp).toLocaleString()}</td>
+                            <td>${log.ip || 'N/A'}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    } catch (error) {
+        box.innerHTML = '<p style="color:var(--danger)">Error loading logs</p>';
+    }
+}
+
+// Validation
+async function runValidation() {
+    const loading = document.getElementById('validationLoading');
+    const output = document.getElementById('validationOutput');
+    loading.style.display = 'block';
+    output.innerHTML = '';
+    
+    try {
+        const result = await fetchJSON("/validate");
+        loading.style.display = 'none';
+        
+        if (result.valid) {
+            output.innerHTML = `
+                <div style="color:var(--secondary);text-align:center;padding:2rem">
+                    <div style="font-size:3rem;margin-bottom:1rem">✅</div>
+                    <h3>Blockchain Valid</h3>
+                    <p>All ${result.blockCount} blocks are secure</p>
+                    <small>${new Date().toLocaleString()}</small>
+                </div>
+            `;
+        } else {
+            output.innerHTML = `
+                <div style="color:var(--danger);text-align:center;padding:2rem">
+                    <div style="font-size:3rem;margin-bottom:1rem">❌</div>
+                    <h3>Validation Failed</h3>
+                    <p><strong>Issue:</strong> ${result.issue}</p>
+                    <p><strong>Block:</strong> #${result.tamperedAt}</p>
+                    <button class="btn btn-warning" onclick="loadRequests()">Check Restore Requests</button>
+                </div>
+            `;
+        }
+    } catch (error) {
+        loading.style.display = 'none';
+        output.innerHTML = `<div style="color:var(--danger);text-align:center"><p>Validation error</p></div>`;
+    }
+}
+
+// Utility Functions
+async function fetchJSON(endpoint, method = 'GET') {
+    const response = await fetch(API + endpoint, {
+        method,
+        headers: { "Authorization": token }
+    });
+    if (!response.ok) throw new Error('Network error');
+    return await response.json();
+}
+
+function showLoading(element) {
+    element.innerHTML = `
+        <div class="loading">
+            <div class="spinner"></div>
+            Loading...
+        </div>
+    `;
+}
+
+function showSuccess(message) {
+    showNotification(message, '#00ff88');
+}
+
+function showError(message) {
+    showNotification(message, '#ff4444');
+}
+
+function showNotification(message, color) {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position:fixed;top:20px;right:20px;padding:1rem 1.5rem;border-radius:8px;
+        color:white;font-weight:bold;z-index:1000;animation:slideIn 0.3s ease;
+        background:${color};
+    `;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
+
+// Logout
+async function logout() {
+    if (confirm('Logout?')) {
+        try {
+            await fetchJSON("/auth/logout", "POST");
+        } catch (error) {
+            // Ignore logout errors
+        } finally {
+            localStorage.removeItem("token");
+            window.location.href = "/login.html";
+        }
+    }
+}
+
+// Add animations
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn { 
+        from { transform: translateX(100%); opacity: 0; } 
+        to { transform: translateX(0); opacity: 1; } 
+    }
+    @keyframes slideOut { 
+        from { transform: translateX(0); opacity: 1; } 
+        to { transform: translateX(100%); opacity: 0; } 
+    }
+`;
+document.head.appendChild(style);
+    </script>
 </body>
 </html>
